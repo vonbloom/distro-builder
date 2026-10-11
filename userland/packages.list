@@ -30,4 +30,7 @@ syncthing
 
 # Terminal tools
 neovim btop fastfetch fzf zsh-completions
+# note export (dotfiles scripts/.local/bin/note): Markdown to PDF; typst finds any installed font,
+# where groff's ms only has its own (no ☐ ☒ for task lists, no PNG images)
+pandoc-cli typst
 ansible ansible-lint
