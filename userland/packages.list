@@ -9,8 +9,11 @@ keyutils less lsof man-db man-pages mtr ncurses nss-mdns openssh pigz pinentry p
 shadow sudo tcpdump time traceroute tree tzdata unzip util-linux util-linux-libs vte-common wget
 words xorg-xauth zip mesa vulkan-intel vulkan-radeon
 
-# Fonts (cached at build time) and the keyring of [cachyos], where brave-bin comes from
-fontconfig cachyos-keyring ttf-jetbrains-mono-nerd noto-fonts-emoji
+# Fonts (cached at build time) and the keyring of [cachyos], where brave-bin comes from.
+# ttf-liberation: Chromium (Brave, VS Code) only takes a metric-compatible font for Arial/Helvetica
+# (and its default sans-serif, Arial); without one, a page that lists "Noto Color Emoji" got its
+# digits and spaces from the emoji font, spread out (Syncthing's GUI, 2026-10-11)
+fontconfig cachyos-keyring ttf-jetbrains-mono-nerd noto-fonts-emoji ttf-liberation
 
 # Desktop apps, exported to the host by distrobox.ini
 brave-bin pipewire-pulse libpulse
@@ -22,6 +25,8 @@ thunar gvfs gvfs-smb adw-gtk-theme
 # remote-viewer: the screen of test VMs (iso/test-vm, VNC or SPICE with sound)
 virt-viewer
 gimp imagemagick
+# Syncthing (notes with the server, CT 112): run by a host user unit that enters this box (dotfiles)
+syncthing
 
 # Terminal tools
 neovim btop fastfetch fzf zsh-completions
