@@ -147,6 +147,11 @@ How `arkdep-build` processes a recipe (relevant constraints):
   was assembled from the dotfiles' `default.ini` and installed hundreds of packages on its first
   start; a session that ended meanwhile left it half set up (bootc T480 rehearsal, 2026-10-08),
   which a box from the image (nothing to install, `/.containersetupdone` in it) cannot be.
+- **sway autostart** (`depends/generic/.../etc/zsh/zlogin`): a login shell starts sway only when
+  `$TTY` is `/dev/tty1`. It used `XDG_VTNR -eq 1`, which every process of the graphical session
+  inherits: after an attach over SSH, tmux marks `DISPLAY` and `WAYLAND_DISPLAY` removed in that
+  session (`update-environment`), so each new window or pane ran zlogin, tried a second sway and
+  closed at once (2026-10-12). A `~/.config/zsh/.zlogin` turns it off.
 - **Lid and suspend** (`depends/generic/.../etc/systemd/logind.conf`): the lid suspends only on
   battery (`HandleLidSwitchExternalPower=ignore`): logind counts as docked only while an external
   display is connected, so turning off the P14s' monitors on the dock (lid closed) suspended it.
