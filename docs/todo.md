@@ -268,11 +268,14 @@ replace the UKI, so a UKI alone adds little.
         `verity-tree.sh` (a copy of /usr, 34969 files with verity: cat, 4 parallel readers, mmap,
         diff), patched none; data identical in both. The counts are lower bounds:
         `fsverity_msg()` is rate limited (10 per 5 s), hence always "10". Tested-by sent the same
-        day; Qu fixes the commit message when merging (it claimed read errors: reads never fail,
-        the failed I/O has already filled the page cache, so the retry finds the blocks
-        uptodate). Next: the fix in mainline, then in a 7.2.y stable release (it has `Fixes:` but
-        no `Cc: stable`: if mainline gets it and 7.2.y does not, ask on the thread), then in
-        CachyOS's kernel; after that update, check the T480's log for `FILE CORRUPTED`.
+        day. v2 the same day: same code, the commit message fixed (reads never fail: the failed
+        I/O has already filled the page cache, so the retry finds the blocks uptodate), with our
+        Reported-by and Tested-by. Eric Biggers (fs-verity maintainer) gave his Reviewed-by and
+        asked for `Cc: stable`, so 7.2.y should get it without us asking. A second, independent
+        report the same day (composefs root on btrfs, arm64 and x86_64, Debian 7.2.8) tested v2
+        too; Qu also sent an fstests case (generic/807: holes every 128 KiB split the reads).
+        Next: the fix in mainline, then in a 7.2.y stable release, then in CachyOS's kernel;
+        after that update, check the T480's log for `FILE CORRUPTED`.
       - Only if the fix stalls, avoid it on new installs: `bootc/install` mounts the root and
         sets `rootflags` with `compress=zstd:1`; `chattr +m` on `/sysroot/composefs` before the
         image is written, or no compression on the bootc root at all (costs disk: the objects
