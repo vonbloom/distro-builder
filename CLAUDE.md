@@ -64,7 +64,8 @@ working there. Keep them in sync when changing behaviour, in the file of the com
   boxes until 2026-10-09 (`default.ini`).
 - **Host config persistence**: `/arkdep/config` `migrate_files` copies listed paths from the running
   system into each new deployment (`cp -rp`, merged over the image). It includes
-  `etc/passwd|shadow|group`, `etc/ssh`, `etc/systemd/network` (WireGuard `wg0`), `var/lib/iwd`, etc.
+  `etc/passwd|shadow|group`, `etc/ssh`, `etc/systemd/network` (WireGuard `wg0`), `etc/nftables.d`
+  (ports opened with `fw`), `var/lib/iwd`, etc.
   Local copies win over the image versions of the same files.
 - **Users**: `arkdep-build` moves non-root accounts to `/usr/lib/{passwd,group,shadow}`, read through
   `nss-altfiles` (`altfiles` in `nsswitch.conf`). Do not remove either or system users disappear.

@@ -174,6 +174,15 @@ How `arkdep-build` processes a recipe (relevant constraints):
   devcontainers, distrobox) kept their conmon scopes alive until the 90 s stop timeout.
   `podman-stop-all.service` (user, sway layer) runs `podman stop --all` when the session ends, and
   `user.conf.d/50-stop-timeout.conf` caps any user unit or scope at 15 s.
+- **Firewall** (`depends/generic/.../etc/nftables.conf`, `usr/local/bin/fw`): `fw` used to add
+  elements to sets the ruleset did not define, ignore the failure and then dump `nft list ruleset`
+  over `/etc/nftables.conf` (libvirt tables and counters included, `destroy table` gone): the port
+  stayed closed and the file no longer matched the image (2026-10-13). Now the sets live in
+  `nftables.conf`, `fw` only rewrites `/etc/nftables.d/fw.nft` (included with a wildcard, so a
+  missing directory is no error) and runs `nft -c` first, restoring the previous file on failure.
+  The sets have `flags interval`: a port inside an open range is a conflict that `nft -c` catches;
+  without that check the whole ruleset, and so the firewall, would fail to load at boot. Test
+  changes without root in a network namespace: `unshare -rn nft -f <copy of nftables.conf>`.
 - **Waybar icons**: the font is JetBrainsMono Nerd Font, which lacks Font Awesome 5/6 codepoints
   (e.g. `U+F590`, `U+F769`): use Nerd Font glyphs (`md-*`) and check new ones with
   `fc-list ":charset=<hex>"`.

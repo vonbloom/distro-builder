@@ -1,51 +1,106 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# Usage: fw allow|deny PORT[-PORT] [tcp|udp]
+#        fw list|reload|panic
+# Open or close ports in the host firewall (nftables). The open ports are elements of the sets
+# allowed_tcp and allowed_udp, kept in /etc/nftables.d/fw.nft, which /etc/nftables.conf includes:
+# fw rewrites that file, checks the whole ruleset with nft -c and loads it, and puts the previous
+# file back if the check fails. /etc/nftables.conf stays as the image ships it. On arkdep the file
+# survives a deploy only through migrate_files in /arkdep/config (etc/nftables.d).
+#   allow   open a port or a range (8000-8010), tcp unless udp is given
+#   deny    close a port or range opened with allow (the same spelling)
+#   list    show the open ports
+#   reload  load /etc/nftables.conf again (drops rules added by hand with nft)
+#   panic   close every port opened with fw
 
-# Check for root
-[[ $EUID -ne 0 ]] && echo "Error: Run as root." && exit 1
+set -euo pipefail
 
-CONF="/etc/nftables.conf"
-PROTO=${3:-tcp} # Default to tcp if not specified
+CONF=/etc/nftables.conf
+STATE=/etc/nftables.d/fw.nft
 
-case "$1" in
-    allow)
-        # Open a port and save
-        nft add element inet filter allowed_${PROTO} "{ $2 }"
-        nft list ruleset > "$CONF"
-        echo "Port $2 ($PROTO) opened."
-        ;;
-        
-    deny)
-        # Close a port and save
-        nft delete element inet filter allowed_${PROTO} "{ $2 }" 2>/dev/null
-        nft list table inet filter > "$CONF"
-        echo "Port $2 ($PROTO) closed."
-        ;;
-        
-    panic)
-        # Close ALL open ports (Clear the lists)
-        echo "Closing all open ports..."
-        nft flush set inet filter allowed_tcp
-        nft flush set inet filter allowed_udp
-        nft list table inet filter > "$CONF"
-        echo "Done. System is isolated (default policies apply)."
-        ;;
-        
-    reload)
-        # Reload from config file
-        nft -f "$CONF" && echo "Rules reloaded from $CONF."
-        ;;
-        
-    list)
-        # Simple status check
-        echo "--- Open TCP ---"
-        nft list set inet filter allowed_tcp
-        echo "--- Open UDP ---"
-        nft list set inet filter allowed_udp
-        ;;
-        
-    *)
-        echo "Usage: $0 {allow|deny} <port> [tcp|udp]"
-        echo "       $0 {panic|reload|list}"
-        exit 1
-        ;;
+usage() { sed -n '2,13s/^# \?//p' "$0" >&2; exit 2; }
+
+(($# >= 1)) || usage
+if ((EUID != 0)); then
+	echo "fw: run as root" >&2
+	exit 1
+fi
+
+# The "add element" lines of the state file
+elements() { [[ -f $STATE ]] && grep '^add element ' "$STATE" || true; }
+
+# Write the elements in $1 as the state file and load the ruleset; keep the old file on failure
+apply() {
+	local backup=""
+	mkdir -p "${STATE%/*}"
+	if [[ -f $STATE ]]; then
+		backup=$(mktemp "${STATE%/*}/.fw.XXXXXX")
+		cp -p "$STATE" "$backup"
+	fi
+	{
+		echo "# Ports opened with fw, included from $CONF: change them with fw, not by hand"
+		[[ -z $1 ]] || printf '%s\n' "$1"
+	} >"$STATE"
+	if ! nft -c -f "$CONF"; then
+		if [[ -n $backup ]]; then mv "$backup" "$STATE"; else rm -f "$STATE"; fi
+		echo "fw: the ruleset does not load with that change, nothing changed" >&2
+		exit 1
+	fi
+	[[ -z $backup ]] || rm -f "$backup"
+	nft -f "$CONF"
+}
+
+port_arg() {
+	local lo hi
+	if [[ $1 =~ ^([0-9]{1,5})(-([0-9]{1,5}))?$ ]]; then
+		lo=$((10#${BASH_REMATCH[1]}))
+		hi=$((10#${BASH_REMATCH[3]:-${BASH_REMATCH[1]}}))
+		if ((lo >= 1 && hi <= 65535 && lo <= hi)); then
+			if ((lo == hi)); then echo "$lo"; else echo "$lo-$hi"; fi
+			return
+		fi
+	fi
+	echo "fw: not a port or port range: $1" >&2
+	exit 2
+}
+
+case $1 in
+	allow | deny)
+		(($# == 2 || $# == 3)) || usage
+		port=$(port_arg "$2")
+		proto=${3:-tcp}
+		[[ $proto == tcp || $proto == udp ]] || usage
+		line="add element inet filter allowed_$proto { $port }"
+		if [[ $1 == allow ]]; then
+			if elements | grep -qxF "$line"; then
+				echo "Port $port/$proto is already open."
+				exit 0
+			fi
+			apply "$({ elements; echo "$line"; } | sort -u)"
+			echo "Port $port/$proto opened."
+		else
+			if ! elements | grep -qxF "$line"; then
+				echo "fw: $port/$proto is not open (see fw list)" >&2
+				exit 1
+			fi
+			apply "$(elements | grep -vxF "$line" || true)"
+			echo "Port $port/$proto closed."
+		fi
+		;;
+	list)
+		(($# == 1)) || usage
+		nft list set inet filter allowed_tcp
+		nft list set inet filter allowed_udp
+		;;
+	reload)
+		(($# == 1)) || usage
+		nft -c -f "$CONF"
+		nft -f "$CONF"
+		echo "Rules reloaded from $CONF."
+		;;
+	panic)
+		(($# == 1)) || usage
+		apply ""
+		echo "Every port opened with fw is closed."
+		;;
+	*) usage ;;
 esac

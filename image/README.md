@@ -79,3 +79,21 @@ distrobox: every hour it compares the digest of `userland:latest` in the registr
 the box runs (no pull), shows 󰆧 and the number of new or updated packages when they differ, and
 nothing otherwise or away from home. A click runs `userland-update` in a terminal, which asks
 before replacing the running box; `userland-update-status refresh` checks again now.
+
+## Firewall
+
+nftables (`/etc/nftables.conf`, generic layer) drops all input except SSH, ICMP, established
+connections and the libvirt guests' DNS/DHCP. Open other ports with `fw` (root):
+
+```sh
+sudo fw allow 3128           # TCP unless udp is given; ranges too: sudo fw allow 1714-1764 udp
+sudo fw deny 3128            # close it again (same spelling as when it was opened)
+sudo fw list                 # open ports (sets allowed_tcp and allowed_udp)
+sudo fw reload               # reload /etc/nftables.conf (drops rules added by hand with nft)
+sudo fw panic                # close every port opened with fw
+```
+
+`fw` keeps the open ports in `/etc/nftables.d/fw.nft`, which `/etc/nftables.conf` includes, and
+checks the whole ruleset with `nft -c` before loading it. On arkdep that file reaches the next
+deployment only if `/arkdep/config` lists `etc/nftables.d` in `migrate_files` (installs from the
+ISO after 2026-10-13 do); bootc keeps `/etc` changes by itself.
