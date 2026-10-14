@@ -25,6 +25,8 @@ thunar gvfs gvfs-smb adw-gtk-theme
 # remote-viewer: the screen of test VMs (iso/test-vm, VNC or SPICE with sound)
 virt-viewer
 gimp imagemagick
+# imv: image viewer, default for images in the boxes (mimeapps.list); also exported to the host
+imv
 # Syncthing (notes with the server, CT 112): run by a host user unit that enters this box (dotfiles)
 syncthing
 

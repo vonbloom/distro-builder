@@ -12,6 +12,7 @@ go back to.
 | `packages.list` | the packages, with what each group is for |
 | `distrobox.ini` | the boxes for `distrobox assemble`: `[playground]` (image, volume, flags) and `[userland]` (plus the apps and commands exported to the host) |
 | `dbus-1/services/` | D-Bus services the host's session bus starts in the box (gvfs, xfconf) |
+| `mimeapps.list` | default applications in the boxes (`/etc/xdg/mimeapps.list`: xdg-open, Thunar): images in imv |
 | `build` | builds the image and pushes it to the registry |
 
 The image carries `distrobox.ini` and the D-Bus services in `/usr/share/userland/`: the host reads

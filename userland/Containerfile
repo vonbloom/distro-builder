@@ -53,10 +53,12 @@ RUN fc-cache -f && \
     ln -s /usr/bin/podman-remote /usr/local/bin/podman && \
     touch /.containersetupdone
 
-# The box manifest and the host integration, read from the image by the host. install, not COPY:
-# the checkout's modes (664 with the build server's umask 0002) would end up in the image
+# The box manifest and the host integration, read from the image by the host, and the default
+# applications of the boxes. install, not COPY: the checkout's modes (664 with the build server's
+# umask 0002) would end up in the image
 RUN --mount=type=bind,source=userland,target=/src \
     install -D -m 644 /src/distrobox.ini /usr/share/userland/distrobox.ini && \
+    install -D -m 644 /src/mimeapps.list /etc/xdg/mimeapps.list && \
     install -D -m 644 -t /usr/share/userland/dbus-1/services /src/dbus-1/services/*.service
 
 LABEL org.opencontainers.image.title=userland
