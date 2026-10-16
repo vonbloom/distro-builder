@@ -7,7 +7,7 @@
 # Hidden when userland runs the newest image, has no box, or the registry is unreachable (away
 # from home). Only the manifest's digest is asked (no pull): userland-update pulls on the click,
 # and asks before replacing the box (its apps close). Waybar refreshes it every hour and on
-# SIGRTMIN+9, sent after the update started from the click.
+# SIGRTMIN+9, which userland-update sends (refresh) when it replaces the box.
 
 set -uo pipefail
 
@@ -22,7 +22,7 @@ case ${1:-} in
 		;;
 	update)
 		exec foot --title userland-update sh -c \
-			"userland-update; pkill -RTMIN+$SIGNAL waybar; printf '\nPress Enter to close'; read -r _"
+			"userland-update; printf '\nPress Enter to close'; read -r _"
 		;;
 esac
 

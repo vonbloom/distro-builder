@@ -138,6 +138,11 @@ else
 			changed=1
 		done
 		((changed)) && busctl --user call org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus ReloadConfig >/dev/null 2>&1 || true
+
+		# The waybar module of the sway layer hides its notice now, wherever the update was run from
+		if command -v userland-update-status >/dev/null; then
+			userland-update-status refresh >/dev/null 2>&1 || true
+		fi
 	fi
 fi
 

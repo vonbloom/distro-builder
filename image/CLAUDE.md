@@ -136,7 +136,10 @@ How `arkdep-build` processes a recipe (relevant constraints):
   `distrobox assemble create --replace --name userland`; it asks before replacing a running box
   (its apps close) unless `--yes`, copies the image's D-Bus services to
   `~/.local/share/dbus-1/services` (plain files: the dotfiles' former links there are replaced, not
-  written through) and removes the previous image. `--dry-run` shows what would change; an older
+  written through) and removes the previous image. Once userland is replaced it runs
+  `userland-update-status refresh` (sway layer, when present), so the waybar notice goes whether
+  the update ran from the module's click or from a terminal (it stayed until the hourly check when
+  only the click refreshed it, 2026-10-16). `--dry-run` shows what would change; an older
   tag as argument goes back to it. `playground` keeps its image and its experiments until
   `userland-update --playground`, which moves it to userland's image and reinstalls the packages
   added in it (`pacman -Qqe` of the box minus `pacman -Qq` of the image, then `pacman -Syu
