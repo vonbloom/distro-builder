@@ -313,9 +313,54 @@ Upstream issues with a local workaround, to drop when they are fixed in a bootc 
 - [ ] bootc-dev/bootc#2557 (no firmware boot entry with `--bootloader systemd`): the
       `efibootmgr` step of `bootc/install`.
 - [ ] bootc-dev/bootc#2558 (`timeout 5` never written): the `loader.conf` written by `bootc/install`.
+      - Both fixed by bootc-dev/bootc#2569 (Johan-Liebert1, 2026-10-14): after `bootctl install`,
+        the `timeout` lines of `loader.conf` are replaced by `timeout 5` (#2558), and `bootctl` gets
+        `--variables=yes` unless `--generic-image` (systemd >= 258; the image has 262) (#2557).
+        Approved by cgwalters the same day, not merged on 2026-10-15: review requested from
+        jeckersb, CI red in three fedora-44 composefs + systemd-boot unsealed jobs. cgwalters would
+        rather have the initial `loader.conf` come from the image or package than hardcoded and
+        parsed by bootc, so the #2558 fix may change shape. `bootctl install` (262) cannot take
+        `loader.conf` from `--root` (it only writes its commented template when the file is
+        missing), so a file in the image needs bootc to copy it to the ESP. If bootc gets that, our
+        `loader.conf` moves to `bootc/overlay` (the Containerfile is already our own Arch base, the
+        counterpart of fedora-bootc's config); if the timeout only moves to fedora-bootc, nothing
+        changes for us.
+      - Tested 2026-10-15 (PR head 5685e48, a `test/t480` image with it, `bootc/install` from the
+        ISO in the T480-layout VM, ESP and firmware entries reset to the Artix state first):
+        the #2557 commit breaks the install. `bootc install` aborts right after `bootctl` copied
+        systemd-boot: "Failed to determine current boot order: Operation not supported". systemd
+        treats a container as not booted with EFI (`bootctl status` in the image's container: "Not
+        booted with EFI or running in a container", also with efivarfs mounted there), and an
+        explicit `--variables=yes` fails instead of skipping; `bootc install` always runs in a
+        container. It leaves the root formatted and the ESP with systemd-boot, the template
+        `loader.conf` and no entry. With `--generic-image` (`--no-variables`) the #2558 commit
+        works: `loader.conf` is `timeout 5` + `#console-mode keep` (no final newline) and the menu
+        counts down from 5 s. The fedora-44 CI failures fit the same cause (systemd >= 258 there,
+        CentOS 10's 257 never gets the flag), not checked (logs need a login). Not yet reported
+        on the PR.
+      - Our `loader.conf` stays anyway (our settings, like the arkdep installer's): only its #2558
+        comment goes. The `efibootmgr` step stays until bootc creates the entry in a way that works
+        in a container: `efibootmgr --create` works in the same container once efivarfs is mounted
+        there (checked; bootc mounts it itself).
+      - Next: the release that includes a working fix, `pkgver` of `aur/local/bootc`, a rebuilt
+        image, then a rehearsal in the ISO VM. Test setup kept in `~/.cache/bootc-rehearsal`
+        (`podman-scratch.qcow2` holds podman's storage on a second disk instead of a 12G tmpfs,
+        so the VM needs 4 GiB). The test image: `aur/local/bootc`'s PKGBUILD with the commit's
+        GitHub archive as source (`makepkg --nocheck` in `aur-builder`), `pacman -U` over the
+        `[aur]` bootc in a copy of the Containerfile, `REPOSITORY=test/t480 bootc/build t480`
+        from a copy of the checkout (~30 min on the server).
 - [ ] bootc-dev/bootc#2227 (version read from labels on ostree, annotations on composefs): keep
       both in `bootc/build`; the creation date fallback of `bootc-update` once every image has the
       annotation.
+      - Answered by bootc-dev/bootc#2570 (mvanhorn, 2026-10-15, "Closes #2227"): composefs status
+        keeps the manifest annotation and falls back to `version_for_config()` (the
+        `org.opencontainers.image.version` label, then `version`), as we proposed. Not reviewed
+        on 2026-10-16 (jeckersb requested); CI red in nearly every job, as for the other PRs of
+        that day, so probably not this change. It does not touch the `created` lookups listed in
+        the issue (`status.rs`, `aleph.rs`).
+      - Once released: the label alone gives the version, so the annotation in `bootc/build` is
+        no longer needed (harmless: chunkah writes it anyway) and the creation date fallback of
+        `bootc-update` only matters for images without the label.
 - [ ] AUR `bootc` without the `selinux` feature (reported in the AUR comments): `aur/local/bootc`
       while the AUR package links libselinux.
 
