@@ -16,6 +16,14 @@ PublishPort=5000:5000
 # bootc/prune deletes old images through the API
 Environment=REGISTRY_STORAGE_DELETE_ENABLED=true
 Volume=/mnt/repo/registry:/var/lib/registry:Z
+# Restart on a failing storage: the registry then answers 503 to everything. The bind mount of a
+# subdirectory of the NFS mount can go stale for good ("Stale file handle", mergerfs on zeus forgot
+# the directory, 2026-10-17) and only a new container mounts it again. Killed, systemd restarts it
+HealthCmd=wget -q -O /dev/null http://127.0.0.1:5000/v2/
+HealthInterval=1m
+HealthRetries=3
+HealthStartPeriod=30s
+HealthOnFailure=kill
 
 [Service]
 Restart=always

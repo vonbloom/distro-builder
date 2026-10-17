@@ -26,7 +26,8 @@ the directory listing (still available under each directory):
 
 - **Builds**: state, last run, duration and next run of each build unit, with its log (follows the
   end while the build runs) and an **Executa** button to start it now;
-- **Images** per recipe: size, packages, kernel and the package changes since the previous image;
+- **Images** per recipe: size, packages, kernel and the package changes since the previous image
+  (bootc and userland from the registry; if it cannot be read, the page says why instead);
 - **Installer**: the ISO with its SHA-256; **`[aur]`**: packages and versions.
 
 Three pieces, all run by systemd:
@@ -50,3 +51,10 @@ see the page and start builds.
 `distro-registry.container` runs `registry:2` on port 5000 (plain HTTP, storage
 `/mnt/repo/registry`, deletes enabled for `bootc/prune`) for the bootc images and their sigstore
 signatures (tags `sha256-<digest>.sig`): see [`../bootc/README.md`](../bootc/README.md).
+
+A health check (`wget` of `/v2/` every minute) kills the container after three failures and
+systemd starts a new one. A failing storage makes the registry answer everything with 503 "health
+check failed", and its bind mount of `/mnt/repo/registry` can go stale for good ("Stale file
+handle": mergerfs on zeus forgot the directory during the SnapRAID sync, 2026-10-17; fixed on
+zeus by the pool options `noforget,inodecalc=path-hash`, homelab role `storage`); only a new
+container mounts it again. `podman healthcheck run distro-registry` runs the check by hand.

@@ -72,7 +72,7 @@ dialog::backdrop { background: rgba(0,0,0,.45); }
 .dlg-head strong { flex: 1; } .dlg-head button { margin: 0; }
 #log { flex: 1; margin: 0; padding: 10px 14px; overflow: auto; background: var(--code);
   font: 12px/1.4 ui-monospace, "JetBrains Mono", monospace; white-space: pre-wrap; word-break: break-word; }
-#error { color: var(--fail); }
+#error, .alert { color: var(--fail); }
 footer { margin-top: 32px; font-size: 13px; }
 </style>
 </head>
@@ -247,6 +247,10 @@ function renderImages() {
   }
   // Images in the registry (port 5000 of this host): bootc per recipe, package lists under
   // /bootc/<recipe>/; the userland distrobox image, package lists under /userland/
+  if (data.registry_error)
+    parts.push(h("h2", {}, "Registre d'imatges"),
+      h("p", { class: "alert" }, "No s'ha pogut llegir el registre (port 5000): ", h("code", {}, data.registry_error),
+        ". Les imatges bootc i userland no es mostren fins que torni a respondre."));
   for (const [recipe, images] of Object.entries(data.bootc || {}))
     parts.push(...registryImages(`Imatges bootc ${recipe}`, recipe, images, `/bootc/${recipe}/`,
       "Sense signatura: els sistemes bootc la rebutgen"));

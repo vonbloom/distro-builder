@@ -6,7 +6,8 @@ journal, and the files published under /mnt/repo, and writes to the output direc
 /run/distro-status, served at /status/):
 
   status.json        units, images per recipe with package changes (arkdep from /mnt/repo, bootc
-                     and userland from the registry), [aur] packages, ISO, storage
+                     and userland from the registry, or why it could not be read), [aur]
+                     packages, ISO, storage
   recipes.txt        one recipe per line (read by the installer to offer a recipe menu)
   logs/<unit>.txt    journal of the last run of each build unit
 
@@ -21,6 +22,7 @@ import socket
 import subprocess
 import tempfile
 import time
+import urllib.error
 import urllib.request
 
 LOG_LINES = 1500
@@ -237,14 +239,27 @@ def registry_get(path, accept=None):
         return json.load(r), r.headers.get("Docker-Content-Digest")
 
 
+def registry_error(e):
+    """Why a registry request failed, with the registry's own message: a failing storage makes it
+    answer everything with 503 "health check failed"."""
+    if isinstance(e, urllib.error.HTTPError):
+        try:
+            details = [err.get("detail") or err.get("message") for err in json.load(e).get("errors") or []]
+        except (OSError, ValueError, AttributeError):
+            details = []
+        return "; ".join([f"HTTP {e.code}", *(str(d) for d in details if d)])
+    return str(getattr(e, "reason", e))
+
+
 def registry_images(repo):
-    """Images per repository in the registry (dated tags, newest first), with the package changes
-    from the lists the builds write (bootc/build to <repo>/bootc/<recipe>/, userland/build to
-    <repo>/userland/) and whether they are signed. Empty if the registry is down."""
+    """(images, error). Images per repository in the registry (dated tags, newest first), with the
+    package changes from the lists the builds write (bootc/build to <repo>/bootc/<recipe>/,
+    userland/build to <repo>/userland/) and whether they are signed. If the registry cannot be
+    read, no images and the reason, shown by the page instead of empty sections."""
     try:
         names = registry_get("/v2/_catalog")[0].get("repositories") or []
-    except (OSError, ValueError):
-        return {}
+    except (OSError, ValueError) as e:
+        return {}, registry_error(e)
     out = {}
     for name in sorted(names):
         try:
@@ -282,7 +297,7 @@ def registry_images(repo):
             del img["_pkgs"]
         if images:  # a repository whose images were all deleted stays in the catalog
             out[name] = images
-    return out
+    return out, None
 
 
 def aur_packages(repo):
@@ -381,7 +396,7 @@ def main():
     recipes = sorted(d for d in os.listdir(args.repo)
                      if os.path.isfile(os.path.join(args.repo, d, "database")))
     st = os.statvfs(args.repo)
-    registry = registry_images(args.repo)
+    registry, registry_err = registry_images(args.repo)
     status = {
         "generated": now,
         "host": socket.gethostname(),
@@ -391,6 +406,7 @@ def main():
         "recipes": {r: recipe_images(args.repo, r) for r in recipes},
         "bootc": {name: images for name, images in registry.items() if name != USERLAND},
         "userland": registry.get(USERLAND, []),
+        "registry_error": registry_err,
         "aur": aur_packages(args.repo),
         "iso": isos(args.repo),
     }
