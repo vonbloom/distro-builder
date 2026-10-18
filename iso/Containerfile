@@ -17,9 +17,13 @@ COPY airootfs/ profile/airootfs/
 COPY --from=keys distro-builder.asc profile/airootfs/root/distro-builder.asc
 # bootc/install, and what it needs to pull the images: the registry's client config of the bootc
 # images' base layer and the sigstore key, so that nothing is downloaded from outside the LAN and
-# the key comes with the ISO's signed checksums
+# the key comes with the ISO's signed checksums. The policy goes under its own name: mkarchiso
+# copies airootfs/ before installing the packages, and containers-common's policy.json then
+# conflicts ("exists in filesystem")
 COPY --from=bootc install profile/airootfs/root/install
-COPY --from=bootc layers/base/overlay/etc/containers/ profile/airootfs/etc/containers/
+COPY --from=bootc layers/base/overlay/etc/containers/registries.conf.d/ profile/airootfs/etc/containers/registries.conf.d/
+COPY --from=bootc layers/base/overlay/etc/containers/registries.d/ profile/airootfs/etc/containers/registries.d/
+COPY --from=bootc layers/base/overlay/etc/containers/policy.json profile/airootfs/etc/containers/distro-builder-policy.json
 COPY --from=keys distro-builder-sigstore.pub profile/airootfs/etc/pki/containers/distro-builder.pub
 
 ENTRYPOINT ["mkarchiso", "-v", "-w", "/tmp/archiso-tmp", "-o", "/output", "/build/profile"]

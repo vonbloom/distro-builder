@@ -200,17 +200,19 @@ mkfs.ext4 -q -F -O verity -L ROOT "$ROOT"
 udevadm settle
 
 # --- podman, the registry's config and the image ---
-# The ISO has them; another live system gets podman from the mirrors and the config here
+# The ISO has them (the policy under its own name: the live system's policy.json belongs to
+# containers-common); another live system gets podman from the mirrors and the config here
+POLICY=/etc/containers/distro-builder-policy.json
 command -v podman >/dev/null || pacman -Sy --noconfirm podman
-if [[ ! -f /etc/pki/containers/distro-builder.pub ]]; then
+if [[ ! -f $POLICY ]]; then
 	mkdir -p /etc/containers/registries.conf.d /etc/containers/registries.d /etc/pki/containers
 	printf '[[registry]]\nlocation = "%s"\ninsecure = true\n' "$REGISTRY" \
 		>/etc/containers/registries.conf.d/50-distro-builder.conf
 	printf 'docker:\n  %s:\n    use-sigstore-attachments: true\n' "$REGISTRY" \
 		>/etc/containers/registries.d/50-distro-builder.yaml
-	curl -fsSL -o /etc/pki/containers/distro-builder.pub \
+	[[ -f /etc/pki/containers/distro-builder.pub ]] || curl -fsSL -o /etc/pki/containers/distro-builder.pub \
 		https://raw.githubusercontent.com/vonbloom/distro-builder/main/keys/distro-builder-sigstore.pub
-	cat >/etc/containers/policy.json <<-EOF
+	cat >"$POLICY" <<-EOF
 	{
 	    "default": [{"type": "insecureAcceptAnything"}],
 	    "transports": {
@@ -242,9 +244,9 @@ fi
 # cow_spacesize=)
 mkdir -p /var/lib/containers/.tmp
 export TMPDIR=/var/lib/containers/.tmp
-# Signature checked by /etc/containers/policy.json: the image must carry the build server's
-# sigstore signature (bootc/build), like every update on the installed system
-podman pull "$IMAGE"
+# The image must carry the build server's sigstore signature (bootc/build), like every update on
+# the installed system (the same policy, the base layer's policy.json)
+podman pull --signature-policy "$POLICY" "$IMAGE"
 
 mkdir -p "$TARGET"
 mount -t ext4 -o noatime "$ROOT" "$TARGET"

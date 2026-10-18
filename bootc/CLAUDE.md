@@ -169,8 +169,10 @@
   on a whole disk it borrows the new home partition (`.bootc-install`, removed afterwards, so the
   install needs no RAM for the image), keeping a home a tmpfs (~5 GB of RAM); `TMPDIR` goes there
   too (the live overlay has 256 MiB without `cow_spacesize=`). The ISO brings podman, the base
-  layer's `/etc/containers` and the sigstore key; on another live system the installer installs
-  podman and writes the same config (the key from GitHub). `wipefs` + `mount -t ext4` (udev's
+  layer's registry config, its `policy.json` as `/etc/containers/distro-builder-policy.json` (the
+  pull uses it with `--signature-policy`; the live system's own belongs to containers-common) and
+  the sigstore key; on another live system the installer installs podman and writes the same
+  files (the key from GitHub). `wipefs` + `mount -t ext4` (udev's
   cached probe may still say the old filesystem), the target at
   `/target` in the container (`/mnt` links to `var/mnt` in a bootc image), user/hostname/Wi-Fi
   written to `/state/deploy/<id>/etc` and `/state/os/default/var` (`useradd --prefix`), and an
