@@ -20,6 +20,9 @@ DHCP=yes
 # Higher metric than 89-ethernet.network: Wi-Fi only carries traffic when there is no Ethernet
 [DHCPv4]
 RouteMetric=600
+# The MAC as DHCP client identifier, not the default DUID made from the machine-id: that one
+# changes with every install (and every arkdep deployment), and the address with it
+ClientIdentifier=mac
 
 [IPv6AcceptRA]
 RouteMetric=600

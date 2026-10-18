@@ -97,6 +97,11 @@ How `arkdep-build` processes a recipe (relevant constraints):
   default waits for every link, and the dock's unplugged port (`enp5s0`) and `wg0` stay
   "configuring" (2 min timeout, a failed unit; seen on the T480). Nothing at boot wants
   `network-online.target`; a backup unit will.
+- **DHCP client identifier**: `ClientIdentifier=mac` in `80-wifi`/`89-ethernet` (2026-10-18):
+  every deployment has its own `/etc/machine-id` (not in `migrate_files`), and the default DUID
+  made from it gave the P14s a new address with each image. `etc/systemd/network` is in
+  `migrate_files`, so the migrated copies win over the image's: an installed laptop needs the
+  line added by hand (`sudo sed -i '/^\[DHCPv4\]/a ClientIdentifier=mac' ...`).
 - **Journal**: `/var/log/journal` is per deployment; capped with `SystemMaxUse=1G` in
   `depends/generic/.../journald.conf.d/50-size.conf` (default would be 4 GiB each).
 - **Menus**: every system menu is a rofi script in `depends/sway/.../usr/local/bin` (e.g.

@@ -162,6 +162,11 @@
   layer: it was the only unit pulling in `network-online.target` there, and its weekly refresh
   changed `/etc/pacman.d/gnupg`, which bootc's `/etc` merge then keeps as a local change, so the
   keyrings of later images would not reach it. pacman is not used on a bootc host.
+- DHCP: `ClientIdentifier=mac` in `80-wifi.network` and `89-ethernet.network` (2026-10-18; the
+  arkdep recipes too). networkd's default client identifier is a DUID made from the machine-id,
+  which is new with every install (the T480 went from .182 to .194) and, on arkdep, with every
+  deployment (`/etc/machine-id` is not migrated: the P14s changed address with each image). The
+  addresses stay dynamic: the same one comes back while the DHCP server remembers the lease.
 - `bootc/install` (live ISO, `/root/install`; whole disk with `--disk`, or keeping a home
   partition): every question also an option, so that `iso/test-install` can run it unattended.
   The root is `mkfs.ext4 -O verity` like bootc's own `to-disk` (since 2026-10-18; btrfs before),
