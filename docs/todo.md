@@ -122,9 +122,10 @@ image's `VERSION_ID` (`initrd-release`); now only when a file it holds changes (
       from `bootc/layers`, boot test passed on the server with the ext4 root): both ways pass
       (install 67 s, boot 7.8-8.1 s, `ROOT: clean` from the initramfs' fsck, the home kept). The
       first ISO build failed on `etc/containers/policy.json` in `airootfs/` (containers-common
-      ships it; `iso/CLAUDE.md`), now `distro-builder-policy.json`. Next: build the ISO,
-      `iso/test-install` with it, then the T480 (`--root/--esp/--home/--swap`: its btrfs root
-      becomes ext4).
+      ships it; `iso/CLAUDE.md`), now `distro-builder-policy.json`. `iso/test-install` with the
+      `distro-installer-2026.10.18` ISO and its own installer passed too (install 62 / 49 s, boot
+      8.2 / 7.7 s). The T480's first try failed: `bootc install` filled the live overlay's `/var/tmp`
+      (256 MiB; the test had booted with `cow_spacesize=2G`), now bound to the storage.
 - [ ] **Fedora bootc trial** (`fedora.md`): the recipes translated on 2026-10-18 (`fedora/`, every
       package found or replaced, resolved with dnf). Next: the Containerfile (base, modules, sway,
       host from the lists, the overlays adapted as `fedora.md` lists), the open decisions there,

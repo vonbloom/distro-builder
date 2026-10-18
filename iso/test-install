@@ -95,7 +95,7 @@ class VM:
         if live:
             # The ISO's kernel and initramfs directly, to add the serial console to its options
             cmd += ["-cdrom", live["iso"], "-kernel", live["kernel"], "-initrd", live["initrd"],
-                    "-append", f"archisobasedir=arch archisosearchuuid={live['uuid']} cow_spacesize=2G {SERIAL}"]
+                    "-append", f"archisobasedir=arch archisosearchuuid={live['uuid']} {live['cow']}{SERIAL}"]
         self.proc = subprocess.Popen(cmd, stdin=subprocess.DEVNULL)
         # A failed check exits with the VM still running
         atexit.register(lambda: self.proc.poll() is None and self.proc.kill())
@@ -268,7 +268,12 @@ def main():
         fail(f"{iso}: no boot/<uuid>.uuid")
     subprocess.run(["bsdtar", "-xf", iso, "-C", WORK, "arch/boot/x86_64/vmlinuz-linux",
                     "arch/boot/x86_64/initramfs-linux.img"], check=True)
-    live = {"iso": iso, "uuid": uuid, "kernel": f"{WORK}/arch/boot/x86_64/vmlinuz-linux",
+    # The live system as it boots from a USB stick: its overlay has 256 MiB. Only an ISO without
+    # podman (the installer installs it) needs cow_spacesize=, as the README says
+    pkglist = subprocess.run(["bsdtar", "-xOf", iso, "arch/pkglist.x86_64.txt"], capture_output=True,
+                             text=True, check=True).stdout
+    cow = "" if re.search(r"^podman ", pkglist, re.M) else "cow_spacesize=2G "
+    live = {"iso": iso, "uuid": uuid, "cow": cow, "kernel": f"{WORK}/arch/boot/x86_64/vmlinuz-linux",
             "initrd": f"{WORK}/arch/boot/x86_64/initramfs-linux.img"}
     subprocess.run(["qemu-img", "create", "-q", "-f", "qcow2", f"{WORK}/disk.qcow2", "50G"], check=True)
     shutil.copy(f"{OVMF}/OVMF_VARS.4m.fd", f"{WORK}/vars.fd")

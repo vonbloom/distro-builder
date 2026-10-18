@@ -37,7 +37,7 @@ ROOT_SIZE=64G YES=0 KARGS_EXTRA=()
 USER_NAME=roger USER_UID=1000
 GROUPS_EXTRA=wheel,input,video,render,audio,kvm,libvirt
 TARGET=/mnt/bootc-target HOMEMNT=/mnt/bootc-home
-STORAGE_ON_HOME=0
+STORAGE_ON_HOME=0 VARTMP_BOUND=0
 
 die() { echo "error: $*" >&2; exit 1; }
 while (($#)); do
@@ -75,6 +75,7 @@ uuid() { blkid -s UUID -o value "$1"; }
 cleanup() {
 	set +e
 	mountpoint -q "$TARGET" && umount -R "$TARGET"
+	((VARTMP_BOUND)) && umount /var/tmp
 	((STORAGE_ON_HOME)) && mountpoint -q /var/lib/containers && umount /var/lib/containers
 	mountpoint -q "$HOMEMNT" && umount "$HOMEMNT"
 	return 0
@@ -240,10 +241,16 @@ if [[ $(findmnt -no FSTYPE /var/lib/containers 2>/dev/null || findmnt -no FSTYPE
 		mount -t tmpfs -o size=12G tmpfs /var/lib/containers
 	fi
 fi
-# podman stages blobs in TMPDIR (/var/tmp by default: the live system's overlay, 256 MiB without
-# cow_spacesize=)
+# podman stages blobs in TMPDIR (/var/tmp by default), and bootc install mounts the host's
+# /var/tmp into its container for its temporary files (ensure_mirrored_host_mount): on the live
+# system both are the overlay, 256 MiB without cow_spacesize=, which a first install on the T480
+# filled ("no space left on device" pulling the image into the composefs repository)
 mkdir -p /var/lib/containers/.tmp
 export TMPDIR=/var/lib/containers/.tmp
+if [[ $(findmnt -no FSTYPE -T /var/tmp) == overlay ]]; then
+	mount --bind /var/lib/containers/.tmp /var/tmp
+	VARTMP_BOUND=1
+fi
 # The image must carry the build server's sigstore signature (bootc/build), like every update on
 # the installed system (the same policy, the base layer's policy.json)
 podman pull --signature-policy "$POLICY" "$IMAGE"
@@ -301,6 +308,10 @@ fi
 # A new home partition: the podman storage lent to the install goes, the user's directory comes
 # from the image's /etc/skel
 if [[ -n $DISK ]]; then
+	if ((VARTMP_BOUND)); then
+		umount /var/tmp
+		VARTMP_BOUND=0
+	fi
 	if ((STORAGE_ON_HOME)); then
 		umount /var/lib/containers
 		STORAGE_ON_HOME=0

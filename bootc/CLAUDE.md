@@ -167,8 +167,12 @@
   The root is `mkfs.ext4 -O verity` like bootc's own `to-disk` (since 2026-10-18; btrfs before),
   mounted `noatime` (`rootflags=noatime`). podman's storage cannot sit on the live overlayfs root:
   on a whole disk it borrows the new home partition (`.bootc-install`, removed afterwards, so the
-  install needs no RAM for the image), keeping a home a tmpfs (~5 GB of RAM); `TMPDIR` goes there
-  too (the live overlay has 256 MiB without `cow_spacesize=`). The ISO brings podman, the base
+  install needs no RAM for the image), keeping a home a tmpfs (~5 GB of RAM). `TMPDIR` and
+  `/var/tmp` (bind mount) go there too: the live overlay has 256 MiB without `cow_spacesize=`, and
+  `bootc install` mounts the host's `/var/tmp` into its container for its temporary files
+  (`ensure_mirrored_host_mount`); the T480's first install filled it ("no space left on device"
+  pulling into the composefs repository, 2026-10-18), which `iso/test-install` had not seen
+  because it booted the ISO with `cow_spacesize=2G` (now only for an ISO without podman). The ISO brings podman, the base
   layer's registry config, its `policy.json` as `/etc/containers/distro-builder-policy.json` (the
   pull uses it with `--signature-policy`; the live system's own belongs to containers-common) and
   the sigstore key; on another live system the installer installs podman and writes the same
