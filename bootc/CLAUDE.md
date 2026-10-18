@@ -138,4 +138,9 @@
   the Containerfile sets them to `Arch Linux (<recipe> <tag>)` and `<tag>.<HHMM>` (`VERSION` and
   `VERSION_ID` build args from `bootc/build`; systemd-boot appends the version to equal titles, two
   builds of a day), and links `/etc/os-release` to it (the Arch container image ships its own
-  copy).
+  copy) before dracut runs: dracut writes `initrd-release` from `/etc/os-release`, and the
+  copy's `VERSION_ID` (the Arch image's build, e.g. `20261011.0.609834`) made a new initramfs
+  with every new Arch image until 2026-10-18 (the T480's 2026-10-11 and 2026-10-16 images: the
+  same `vmlinuz`, initramfs differing in `initrd-release`, `libzstd` and plymouth's `libfreetype`).
+  The initramfs must stay byte for byte the same when its contents do: bootc's soft reboot
+  requires the same boot digest (sha256 of `vmlinuz` + initramfs) and kernel command line.

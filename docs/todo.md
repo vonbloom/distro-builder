@@ -77,6 +77,8 @@ from the packages' build dates). 2026-10-07 -> 2026-10-08 shared none: the owner
 `/usr`, `/usr/lib` and `/usr/share` (`build-recipe.sh`) changed those parent directories in every
 layer, a one-off. Still to see on a regular weekly build: which layers change on every build
 (VERSION_ID with the time in os-release, install dates in the pacman database, the initramfs?).
+The initramfs (46 MB) did change on every build until 2026-10-18: it carried the Arch container
+image's `VERSION_ID` (`initrd-release`); now only when a file it holds changes (bootc/CLAUDE.md).
 
 - [x] **Boot test before publishing `latest`** (2026-10-18). The composefs backend sets up no
       boot counting (bootc docs, `bootc-boot-failure-detection.7.md`: "likely to be added in the
@@ -106,6 +108,25 @@ layer, a one-off. Still to see on a regular weekly build: which layers change on
       (its `snapshot_dir /arkdep/snapshots` does not exist under bootc, bootc/README "Missing
       before real use") and `systemd-networkd-wait-online.service` timed out. Neither is part of
       the boot transaction, so the boot test does not see them.
+- [ ] **Soft reboot** (systemd `soft-reboot`, `bootc upgrade --soft-reboot`, composefs backend in
+      bootc 1.17.1): userspace restarts into the new image on the running kernel, skipping
+      firmware, loader, kernel and initrd (T480: 13.1 + 10.9 + 1.3 + 3.3 s of its 35.6 s boot);
+      the session still closes. Only when the new image has the same boot digest (sha256 of
+      `vmlinuz` + initramfs) and kernel command line. Waits until bootc is the default on the
+      laptops or yamaha moves to bootc (unattended updates of a server), and until the T480 shows
+      how often consecutive images qualify, now that the initramfs no longer changes on every
+      build (Arch updates its kernel, systemd, glibc, zstd or plymouth's libraries most weeks).
+      Then:
+      - `bootc-update` stages with `bootc upgrade --soft-reboot=auto`: when the image qualifies,
+        bootc mounts it at `/run/nextroot` (otherwise it stays staged for a normal reboot). It
+        must happen when staging: in 1.17.1 `bootc upgrade --apply --soft-reboot` with that image
+        already staged does a full reboot (`bootc_composefs/update.rs`).
+      - `/run/bootc-update/staged` records it; the waybar indicator and the power menu offer
+        `systemctl soft-reboot`.
+      - Test on the T480: `systemctl soft-reboot` as the user (polkit), the `/etc` merge after
+        it, and suspend or hibernation with `/run/nextroot` mounted.
+      - arkdep (the P14s) has no support: a deployment mounted at `/run/nextroot` by hand, not
+        while arkdep and bootc are compared.
 - [ ] The CachyOS key from `keys/cachyos.asc` in the arkdep recipe
       (`common/extensions/pre_build.sh`) and the userland image too: both still fetch it from
       keyserver.ubuntu.com, and the arkdep recipe the keyring from a fixed URL.

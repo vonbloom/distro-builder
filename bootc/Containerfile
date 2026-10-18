@@ -63,8 +63,14 @@ RUN --mount=type=bind,source=iso/airootfs/root/systemd-boot.template,target=/tem
     cat /usr/lib/bootc/kargs.d/10-recipe.toml
 
 # initramfs with bootc's dracut module (bootcrew's shared/initramfs.sh), for the image's kernel
-# rather than the build host's
-RUN mkdir -p /usr/lib/dracut/dracut.conf.d && \
+# rather than the build host's. The Arch container image ships its own /etc/os-release, with the
+# container build as VERSION_ID, which dracut copied into the initramfs (initrd-release): a new
+# initramfs whenever Arch rebuilt its image, whatever its contents. Linked back to
+# /usr/lib/os-release first (Arch's, no version; ours gets its version below, after dracut), the
+# initramfs only changes with the files it holds, and an update without a new initramfs downloads
+# no new one and can be applied with a soft reboot (bootc's boot digest, vmlinuz + initramfs)
+RUN ln -sf ../usr/lib/os-release /etc/os-release && \
+    mkdir -p /usr/lib/dracut/dracut.conf.d && \
     printf 'systemdsystemconfdir=/etc/systemd/system\nsystemdsystemunitdir=/usr/lib/systemd/system\n' \
       > /usr/lib/dracut/dracut.conf.d/30-bootc-module-fix.conf && \
     printf 'reproducible=yes\nhostonly=no\nadd_dracutmodules+=" bootc "\n' \
@@ -84,14 +90,12 @@ RUN sed -i 's|^HOME=.*|HOME=/var/home|' /etc/default/useradd && \
 
 # Recipe and tag in os-release: bootc titles the boot entries with PRETTY_NAME and versions them
 # with VERSION_ID (Arch has neither: every entry was "Arch Linux", followed by a hash). systemd-boot
-# adds the version to equal titles: it carries the build time (two builds of the same day). The
-# Arch container image ships its own /etc/os-release (with the container build as VERSION_ID): link
-# it back to /usr/lib/os-release as on an installed Arch system
+# adds the version to equal titles: it carries the build time (two builds of the same day).
+# /etc/os-release links here since the initramfs step
 ARG VERSION=unknown
 ARG VERSION_ID=unknown
 RUN sed -i "s/^PRETTY_NAME=.*/PRETTY_NAME=\"Arch Linux ($RECIPE $VERSION)\"/" /usr/lib/os-release && \
     printf 'VERSION_ID=%s\nIMAGE_ID=%s\nIMAGE_VERSION=%s\n' "$VERSION_ID" "$RECIPE" "$VERSION" >> /usr/lib/os-release && \
-    ln -sf ../usr/lib/os-release /etc/os-release && \
     cat /etc/os-release
 
 # Files whose owner or mode differ from their package's: an overlay must never change them (a tar
