@@ -8,14 +8,17 @@
 
 FROM docker.io/archlinux/archlinux:latest AS base
 
-# Repositories as in common/extensions/pre_build.sh. [arkane] only serves arkdep: left out.
+# Repositories as in common/extensions/pre_build.sh. [arkane] only serves arkdep: left out. The
+# CachyOS key comes from keys/ (exported from cachyos-keyring 20240331), not from a keyserver that
+# may not answer, and cachyos-keyring from [cachyos], not from a URL of a fixed version
 RUN --mount=type=bind,source=image/arkdep-build.d/common,target=/common \
+    --mount=type=bind,source=keys/cachyos.asc,target=/cachyos.asc \
     pacman-key --init && pacman-key --populate archlinux && \
-    pacman-key --recv-keys F3B607488DB35A47 --keyserver keyserver.ubuntu.com && \
-    pacman-key --lsign-key F3B607488DB35A47 && \
-    pacman -U --noconfirm https://mirror.cachyos.org/repo/x86_64/cachyos/cachyos-keyring-20240331-1-any.pkg.tar.zst && \
+    pacman-key --add /cachyos.asc && \
+    pacman-key --lsign-key 882DCFE48E2051D48E2562ABF3B607488DB35A47 && \
     sed '/^\[arkane\]/,/^Server/d' /common/pacman.conf > /etc/pacman.conf && \
-    cp /common/mirrorlist /etc/pacman.d/mirrorlist
+    cp /common/mirrorlist /etc/pacman.d/mirrorlist && \
+    pacman -Sy --noconfirm cachyos-keyring
 
 # pacman's database, cache and log go to /usr/lib/sysimage (bootcrew): /var is shared by all
 # deployments, the package database must follow /usr

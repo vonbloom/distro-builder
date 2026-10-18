@@ -21,18 +21,21 @@ systemd/  build-image@.{service,timer}, build-bootc@.{service,timer}, build-aur.
           distro-status.{service,timer} (every minute), distro-trigger.{socket,service}
 lib/      builder.sh (ensure_builder: rebuild a podman builder image when older than 7 days),
           sign.sh (detached GPG signatures with the server key, /etc/distro-builder/gnupg),
-          push-image.sh (chunkah + signed skopeo push to the registry: bootc and userland images)
+          push-image.sh (chunkah + signed skopeo push to the registry, tag_image: bootc and
+          userland images), retry-once (a build unit's single retry, build-bootc@)
 docs/     todo.md: pending improvements (boot time, storage, memory); layers.md: prospect of
           layered bootc images (base, desktop, host) for every machine, yamaha included
 ci/       check: static checks (shellcheck, Python syntax, stray files, exec bits, recipe structure),
           run by GitHub Actions on every push (.github/workflows/check.yml)
 bootc/    the recipes as bootc images (trial, the T480): Containerfile, build-recipe.sh,
-          build (chunkah + push to the registry), prune, install (from the ISO), overlay/; design
-          and VM results in bootc/README.md
+          build (chunkah + push to the registry as candidate, boot test, then latest), test (the
+          boot test in a VM), prune, install (from the ISO), overlay/; design and VM results in
+          bootc/README.md
 userland/ the userland distrobox image: Containerfile, packages.list, distrobox.ini (the box
           manifest, carried by the image), dbus-1/, build; prune is bootc/prune
 keys/     distro-builder.asc: public signing key, trusted by arkdep, pacman and the installer;
-          distro-builder-sigstore.pub: public key of the bootc image signatures
+          distro-builder-sigstore.pub: public key of the bootc image signatures;
+          cachyos.asc: the CachyOS repositories' key (bootc images)
 install   links the units and the quadlet, installs the polkit rule, enables the timers (also
           podman-auto-update) and the trigger socket (run as root; rerun after changing systemd/, serve/)
 ```

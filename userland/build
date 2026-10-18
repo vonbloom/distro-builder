@@ -28,4 +28,5 @@ podman build --pull=always --no-cache -f userland/Containerfile "${build_args[@]
 
 podman run --rm --entrypoint pacman "$IMAGE" -Q >"$PKGS_DIR/userland-$TAG.pkgs"
 
-push_image "$IMAGE" "$REPOSITORY" "$TAG"
+push_image "$IMAGE" "$REPOSITORY" "$TAG" "$TAG"
+tag_image "$REPOSITORY" "$TAG" latest

@@ -2,9 +2,13 @@
 # Usage: build <recipe>
 # Build the bootc image of an arkdep recipe (bootc/Containerfile), split it into per-package layers
 # with chunkah (an update then downloads only the packages that changed) and push it to the
-# registry as <recipe>:YYYY-MM-DD and <recipe>:latest with skopeo. The package list is written to
-# PKGS_DIR for notify-image.
+# registry as <recipe>:candidate with skopeo, signed. bootc/test boots it in a VM; only then do
+# <recipe>:YYYY-MM-DD and <recipe>:latest, the tag the clients follow, name it, and its package
+# list goes to PKGS_DIR (notify-image, the status page, bootc-update). A failed test leaves latest
+# as it was, the candidate in the registry, its package list in PKGS_DIR/candidate.packages and the
+# serial log in PKGS_DIR/candidate.log.
 # Local test run: REGISTRY=127.0.0.1:5000 PKGS_DIR=/some/dir AUR_SERVER=... AUR_SIGLEVEL=Never
+# ALLOW_UNSIGNED=1 (and the OVMF paths of bootc/test)
 # Test run on the build server: REPOSITORY=test/<recipe> PKGS_DIR=/some/dir (next to the real
 # images, not over them; delete its manifests through the registry API afterwards)
 
@@ -27,13 +31,36 @@ build_args=(--build-arg "RECIPE=$RECIPE" --build-arg "VERSION=$TAG" --build-arg 
 
 mkdir -p "$PKGS_DIR"
 
-# --no-cache: a weekly build must install the current packages, not reuse last week's layers
-podman build --pull=always --no-cache --no-hostname -f bootc/Containerfile "${build_args[@]}" \
+# --no-cache: a weekly build must install the current packages, not reuse last week's layers.
+# --pull=newer: the build upgrades the base image's packages anyway, so a Docker Hub that does not
+# answer leaves the local copy in use instead of failing the build
+podman build --pull=newer --no-cache --no-hostname -f bootc/Containerfile "${build_args[@]}" \
 	-t "$IMAGE" .
 
-podman run --rm --entrypoint pacman "$IMAGE" -Q >"$PKGS_DIR/$RECIPE-$TAG.pkgs"
+# A stage of the recipe that installed nothing (arkdep-build once skipped one without a word,
+# image/CLAUDE.md) shows as far fewer packages than the previous image: not pushed. A recipe that
+# drops that many packages on purpose: ALLOW_FEWER_PACKAGES=1 (systemctl set-environment for the
+# unit, unset-environment afterwards)
+packages=$PKGS_DIR/candidate.packages
+podman run --rm --entrypoint pacman "$IMAGE" -Q >"$packages"
+previous=$(find "$PKGS_DIR" -maxdepth 1 -name "$RECIPE-*.pkgs" | sort | tail -n 1)
+if [[ -n $previous && ${ALLOW_FEWER_PACKAGES:-0} != 1 ]]; then
+	count=$(wc -l <"$packages") previous_count=$(wc -l <"$previous")
+	if ((count * 5 < previous_count * 4)); then
+		echo "$count packages, $previous_count in $(basename "$previous" .pkgs): more than 20 % fewer, not pushed" >&2
+		exit 1
+	fi
+fi
 
 # Labels bootc reads: the version goes to the config labels (bootc's ostree backend reads them)
 # and the manifest annotations (the composefs backend reads only these: bootc-dev/bootc#2227).
 # bootc systems refuse unsigned images (policy.json of the generic overlay, image/arkdep-build.d)
-push_image "$IMAGE" "$REPOSITORY" "$TAG" --label ostree.bootable=1 --label containers.bootc=1
+push_image "$IMAGE" "$REPOSITORY" "$TAG" candidate --label ostree.bootable=1 --label containers.bootc=1
+
+# The candidate, pulled from the registry with the clients' policy, must boot before the clients
+# get it. composefs bootc has no boot counting: an image that does not boot would wait on the T480
+# (bootc-update stages it within 4 hours) until the user picks the previous entry by hand
+BOOT_LOG=$PKGS_DIR/candidate.log bootc/test "$REGISTRY/$REPOSITORY:candidate"
+
+tag_image "$REPOSITORY" candidate "$TAG" latest
+mv "$packages" "$PKGS_DIR/$RECIPE-$TAG.pkgs"

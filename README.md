@@ -52,7 +52,9 @@ checkout `/home/admin/distro-builder`), never on the laptops. Requirements:
   AUR packages and ISOs are written there and served from there;
 - `notify-ha` and the `notify-failure@.service` template, installed by the homelab repo (Ansible
   role `notify_ha`), for the Home Assistant notifications;
-- port 5000 reachable from the LAN for the container registry (the bootc and userland images).
+- port 5000 reachable from the LAN for the container registry (the bootc and userland images);
+- KVM (`/dev/kvm`: the VM's CPU type is `host`), `qemu-system-x86` and `ovmf` for the boot test of
+  the bootc images (`bootc/test`), set up by the homelab repo too.
 
 The VM is defined in the homelab repo and is rebuilt from scratch rather than backed up: Ansible
 creates it (`pve_guests`, cloud-init), clones this repository and runs `install` (play "Build
@@ -101,6 +103,8 @@ The bootc images are signed with a second key, in sigstore format (ECDSA P-256, 
 private key and its passphrase live in `/etc/distro-builder/sigstore` (root, mode 700) and in the
 homelab vault, like the GPG key. `lib/push-image.sh` signs each bootc and userland image when
 pushing it; the signature is stored in the registry next to the image (`sha256-<digest>.sig`).
+Without that key the bootc and userland builds fail rather than push an image every client would
+refuse (`ALLOW_UNSIGNED=1` for local test runs).
 
 Clients get the public key from this repository, not from the server they verify:
 
@@ -118,7 +122,9 @@ Clients get the public key from this repository, not from the server they verify
 ### Notifications
 
 Every unit has `OnFailure=notify-failure@%n.service`, so a failed build sends a `[FAILED]` push to
-Home Assistant with the end of its journal. A successful image build sends "New image ..." (tag
+Home Assistant with the end of its journal. The bootc builds retry a failure once, half an hour
+later, and only the second failure is reported; a bootc image that fails its boot test is such a
+failure ([bootc/README.md](bootc/README.md#building-and-updates)). A successful image build sends "New image ..." (tag
 `image-<recipe>`) with its package count, kernel and the changes since the previous image; it is
 sent as a warning when the package count drops by more than 20 % (see
 [image/README.md](image/README.md#sanity-check)). A bootc image build sends the same as "New bootc image ..." (tag

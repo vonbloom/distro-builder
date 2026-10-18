@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+# Usage: test <image reference>
+# Boot test of a bootc image, run by bootc/build before latest names it: what the T480 does with
+# an update, in a throwaway VM. The image is pulled from the registry with the clients' signature
+# policy (a missing or bad signature, or a missing blob, fails here like on the T480), installed on
+# a sparse disk image like bootc/install does (composefs backend, systemd-boot, btrfs with
+# zstd:1) and booted in QEMU with KVM and OVMF, without network. It passes when systemd reports
+# "Startup finished" and the journal, forwarded to the serial console, shows no failed unit, no
+# emergency mode and no kernel panic, within BOOT_TIMEOUT seconds. It does not test hardware
+# drivers (GPU, Wi-Fi) or the desktop.
+# The serial log goes to BOOT_LOG (default: the work directory, deleted afterwards). Needs root,
+# /dev/kvm (VM 202: cpu host, homelab host_vars/zeus.yml), qemu-system-x86 and ovmf.
+# Local test runs (no signing key, the image unsigned): ALLOW_UNSIGNED=1, and on Arch
+# OVMF_CODE=/usr/share/edk2/x64/OVMF_CODE.4m.fd OVMF_VARS=/usr/share/edk2/x64/OVMF_VARS.4m.fd
+
+set -euo pipefail
+
+cd "$(dirname "$(readlink -f "$0")")/.."
+
+IMAGE=${1:?An image reference must be specified}
+BOOT_TIMEOUT=${BOOT_TIMEOUT:-600}
+OVMF_CODE=${OVMF_CODE:-/usr/share/OVMF/OVMF_CODE_4M.fd}
+OVMF_VARS=${OVMF_VARS:-/usr/share/OVMF/OVMF_VARS_4M.fd}
+# Lines of the serial log that fail the test. Units that fail in a VM without the hardware they
+# expect would go to an exception here, never to the recipe. Not "FILE CORRUPTED": the btrfs
+# fs-verity bug with compressed extents logs it for data that reads fine (bootc/CLAUDE.md)
+FAILURE='Failed to start|Failed with result|Dependency failed|emergency mode|Emergency Shell|Kernel panic'
+
+[[ -e /dev/kvm ]] || { echo "No /dev/kvm: the boot test needs KVM" >&2; exit 1; }
+
+# The disk image (~5 GB written of a sparse 20 GB): /var/tmp, not the tmpfs /tmp. Global for the
+# EXIT trap
+TEST_WORK=$(mktemp -d /var/tmp/bootc-test.XXXXXX)
+TEST_QEMU=''
+# set +e: a failing command here (the image already removed, qemu's exit status) would otherwise
+# become the script's exit status, also after a passed test
+cleanup() {
+	set +e
+	[[ -n $TEST_QEMU ]] && kill "$TEST_QEMU" 2>/dev/null && wait "$TEST_QEMU" 2>/dev/null
+	podman rmi "$IMAGE" >/dev/null 2>&1
+	rm -rf -- "$TEST_WORK"
+	return 0
+}
+trap cleanup EXIT
+work=$TEST_WORK
+log=${BOOT_LOG:-$work/serial.log}
+
+# The clients' policy (the generic overlay's policy.json: signatures required for the build
+# server's registry, matchRepository) with the public key of this checkout. The signatures are
+# read from the registry as on the clients: /etc/containers/registries.d/50-distro-builder.yaml,
+# installed by ../install
+pull=(--tls-verify=false)
+if [[ ${ALLOW_UNSIGNED:-0} != 1 ]]; then
+	sed "s|/etc/pki/containers/distro-builder.pub|$PWD/keys/distro-builder-sigstore.pub|" \
+		image/arkdep-build.d/depends/generic/overlay/post_install/etc/containers/policy.json \
+		>"$work/policy.json"
+	pull+=(--signature-policy "$work/policy.json")
+fi
+podman pull "${pull[@]}" "$IMAGE"
+
+# The image installs itself from the host's container storage, as from the ISO (bootc/install).
+# --generic-image: no firmware boot entry, on the build server's own firmware. The journal goes to
+# the serial console: systemd's "Startup finished" and any failure, also after the getty started
+truncate -s 20G "$work/disk.raw"
+podman run --rm --privileged --pid=host --ipc=host --security-opt label=type:unconfined_t \
+	-v /dev:/dev -v /var/lib/containers:/var/lib/containers -v "$work:/work" \
+	"$IMAGE" bootc install to-disk --via-loopback --generic-image --composefs-backend \
+	--bootloader systemd --filesystem btrfs --karg "rootflags=compress=zstd:1,noatime" \
+	--karg console=ttyS0 --karg systemd.journald.forward_to_console=1 /work/disk.raw
+podman rmi "$IMAGE" >/dev/null
+
+cp "$OVMF_VARS" "$work/vars.fd"
+: >"$log"
+qemu-system-x86_64 -enable-kvm -machine q35 -cpu host -smp 2 -m 3G \
+	-drive if=pflash,format=raw,readonly=on,file="$OVMF_CODE" \
+	-drive if=pflash,format=raw,file="$work/vars.fd" \
+	-drive file="$work/disk.raw",format=raw,if=virtio \
+	-nic none -display none -serial file:"$log" -no-reboot &
+TEST_QEMU=$!
+
+result=timeout
+for ((elapsed = 0; elapsed < BOOT_TIMEOUT; elapsed += 5)); do
+	kill -0 "$TEST_QEMU" 2>/dev/null || { result=exited; break; }
+	if grep -qE "$FAILURE" "$log"; then
+		sleep 10  # a few more seconds of log around the failure for the report
+		result=failed
+		break
+	fi
+	grep -q 'Startup finished' "$log" && { result=passed; break; }
+	sleep 5
+done
+
+if [[ $result == passed ]]; then
+	echo "Boot test passed: $(grep -o 'Startup finished.*' "$log" | head -1 | tr -d '\r')"
+	exit 0
+fi
+echo "Boot test failed ($result after ${elapsed}s), serial log${BOOT_LOG:+ in $BOOT_LOG}:" >&2
+grep -E "$FAILURE" "$log" | tr -d '\r' | head -20 >&2 || true
+echo "--- last lines" >&2
+tail -n 40 "$log" | tr -d '\r' >&2
+exit 1

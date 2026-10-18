@@ -78,33 +78,37 @@ from the packages' build dates). 2026-10-07 -> 2026-10-08 shared none: the owner
 layer, a one-off. Still to see on a regular weekly build: which layers change on every build
 (VERSION_ID with the time in os-release, install dates in the pacman database, the initramfs?).
 
-- [ ] **Boot test before publishing `latest`.** The composefs backend sets up no boot counting
-      (bootc docs, `bootc-boot-failure-detection.7.md`: "likely to be added in the future"), unlike
-      arkdep's `+3` entries: an image that does not boot is only found when the T480, which
-      stages updates every 4 h by itself, reboots into it, and the user has to pick the previous
-      entry by hand. Gate `latest` (what the T480 follows) on a boot in a VM, the manual VM
-      rehearsal of 2026-10-08 automated:
-      - Nested KVM for VM 202: zeus (i5-8500) has `kvm_intel nested=Y`, but VM 202 runs with
-        `cpu: x86-64-v3`, which hides VMX (no `/dev/kvm`). By hand: `qm set 202 --cpu host`,
-        restart the VM, then `host_vars/zeus.yml` (and `pve_guests` support for `cpu` if missing).
-      - Server packages: `qemu-system-x86` and `ovmf` (homelab `builders` play).
-      - `bootc/test <recipe> <image>`: `bootc install to-disk --via-loopback --composefs-backend
-        --bootloader systemd --filesystem btrfs --karg console=ttyS0` into a sparse raw file (in a
-        privileged container of the new image, like `bootc/install` does from the ISO), then
-        `qemu-system-x86_64 -enable-kvm -machine q35 -m 4G` with OVMF, the disk, no network,
-        `-serial file:...`, and wait (with a timeout, ~5 min) for the getty's `login:` on ttyS0.
-        Also fail on `emergency`/`Failed to start` lines. Test from the signed registry image
-        (the reference the T480 pulls) or check that the image's own `policy.json`, which requires
-        signatures for `192.168.2.50:5000`, does not refuse a local source reference.
-      - `bootc/build`: push the dated tag (signed) as today, run the test, and only then point
-        `latest` at it. On failure keep `latest`, notify Home Assistant with the tail of the
-        serial log (`notify-failure@` already runs on a failed unit) and keep the log next to
-        the `.pkgs` file.
-      - bootc-dev/bootc#2557 and #2558 need no workaround in the test: OVMF boots the
-        `EFI/BOOT` fallback bootc installs, and without a menu timeout the default entry boots.
-      - Cost: ~5 min per build, ~10 GB of temporary disk (56 GB free). Catches what breaks the
-        generic boot (initramfs and dracut modules, composefs setup, `/etc` merge, failing
-        units, emergency mode), not hardware specific drivers (i915, Wi-Fi) or the desktop.
+- [x] **Boot test before publishing `latest`** (2026-10-18). The composefs backend sets up no
+      boot counting (bootc docs, `bootc-boot-failure-detection.7.md`: "likely to be added in the
+      future"), unlike arkdep's `+3` entries: an image that does not boot was only found when the
+      T480, which stages updates every 4 h by itself, rebooted into it, and the user had to pick
+      the previous entry by hand. Now `bootc/build` pushes `<recipe>:candidate` (signed),
+      `bootc/test` pulls it with the clients' policy, installs it on a sparse raw file
+      (`bootc install to-disk --via-loopback --generic-image`) and boots it in QEMU (KVM, OVMF, no
+      network, the journal on the serial console) until "Startup finished" without a failed unit;
+      only then do the dated tag and `latest` name it (`tag_image`). On failure `latest` stays,
+      `notify-failure@` reports the matching lines and the tail of the serial log (after one retry
+      30 min later), and the whole log is `candidate.log` next to the `.pkgs` files. VM 202 got
+      `cpu: host` (nested KVM; zeus has `kvm_intel nested=Y`) and `qemu-system-x86` + `ovmf`
+      (homelab). Same change: no push without the signing key (it pushed unsigned with a warning,
+      and the clients would have refused it without a word), no push with 20 % fewer packages than
+      the previous image, the CachyOS key from `keys/` instead of the keyserver, `--pull=newer`
+      for the base image, and the checkout's commit as `org.opencontainers.image.revision`.
+      Catches what breaks the generic boot (initramfs and dracut modules, composefs setup, `/etc`
+      merge of a fresh install, failing units, emergency mode), not hardware specific drivers
+      (i915, Wi-Fi) or the desktop.
+- [ ] **Upgrade test**: the T480 never installs from scratch, it upgrades, and the `/etc` 3-way
+      merge (a file changed both in the image and locally) only happens on an upgrade. Install the
+      previous `latest`, boot it, `bootc switch` to the candidate (the VM then needs a network to
+      the registry: QEMU user networking reaches the build server's port 5000), reboot, same
+      checks. About twice the test's time.
+- [ ] The T480 is `degraded` (2026-10-18, `t480:2026-10-11`, up 6 days): `btrbk.service` fails
+      (its `snapshot_dir /arkdep/snapshots` does not exist under bootc, bootc/README "Missing
+      before real use") and `systemd-networkd-wait-online.service` timed out. Neither is part of
+      the boot transaction, so the boot test does not see them.
+- [ ] The CachyOS key from `keys/cachyos.asc` in the arkdep recipe
+      (`common/extensions/pre_build.sh`) and the userland image too: both still fetch it from
+      keyserver.ubuntu.com, and the arkdep recipe the keyring from a fixed URL.
 - [x] **Push chunkah's output with skopeo** instead of `podman load` + `podman push` (2026-10-09).
       Test build of t480 to `test/t480`: 9 min 49 s instead of ~18, memory peak 3 GB instead of
       4.7-6.9 GB, 1.5 min of CPU instead of ~4.5 (no import, no recompression). After the recipe

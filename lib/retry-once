@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Usage: retry-once <unit> <command>...
+# Run a build unit's command so that systemd retries a failure once: the unit has
+# Restart=on-failure (RestartSec later, a mirror or a registry that failed for a while has usually
+# come back), RestartMode=direct (no OnFailure= for the first failure) and
+# RestartPreventExitStatus=99. A failure of the retry exits 99: the unit fails without another
+# restart, and only then notify-failure@ reports it. NRestarts counts the automatic restarts and is
+# reset by every start, by the timer or by hand (checked with systemd 257 and 262).
+
+"${@:2}" && exit 0
+rc=$?
+(($(systemctl show -P NRestarts "$1") >= 1)) && exit 99
+exit "$rc"

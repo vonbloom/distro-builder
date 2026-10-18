@@ -33,7 +33,7 @@ install -m 644 serve/distro-trigger.rules /etc/polkit-1/rules.d/50-distro-trigge
 install -D -m 644 image/arkdep-build.d/depends/generic/overlay/post_install/etc/containers/registries.d/50-distro-builder.yaml \
 	/etc/containers/registries.d/50-distro-builder.yaml
 [[ -r /etc/distro-builder/sigstore/distro-builder.private ]] ||
-	echo "No sigstore key in /etc/distro-builder/sigstore (homelab vault): bootc images will not be signed" >&2
+	echo "No sigstore key in /etc/distro-builder/sigstore (homelab vault): the bootc and userland builds will fail" >&2
 systemctl daemon-reload
 
 systemctl enable --now build-aur.timer build-userland.timer

@@ -21,14 +21,25 @@ T480 runs bootc (`t480`, built weekly) and the P14s stays on arkdep (`p14s` boot
 - `bootc/build <recipe>` builds `bootc/Containerfile` (which applies the arkdep recipe with
   `build-recipe.sh` and installs `bootc` from `[aur]`), splits the image into per-package layers
   with [chunkah](https://github.com/coreos/chunkah) and pushes it to the registry with skopeo
-  (the compressed layers as chunkah writes them) as `<recipe>:YYYY-MM-DD` and `<recipe>:latest`. The package list goes to `/mnt/repo/bootc/<recipe>/`
-  for the notification.
+  (the compressed layers as chunkah writes them) as `<recipe>:candidate`. An image with more than
+  20 % fewer packages than the previous one is not pushed (a stage of the recipe that installed
+  nothing).
+- `bootc/test` then pulls the candidate as the clients would (signature checked), installs it on a
+  disk image and boots it in a VM (QEMU, KVM, UEFI, no network). Only when it boots without a
+  failed unit do `<recipe>:YYYY-MM-DD` and `<recipe>:latest`, the tag the bootc systems follow,
+  name it, and the package list goes to `/mnt/repo/bootc/<recipe>/` for the notification. After a
+  failed test `latest` stays where it was, the candidate stays in the registry, and its serial log
+  is `http://192.168.2.50/bootc/<recipe>/candidate.log`. The test catches what breaks the boot
+  (initramfs, composefs, `/etc`, failing units, emergency mode), not hardware drivers or the
+  desktop.
+- A failed build is retried once, half an hour later; only the second failure is notified.
 - Each image is signed with the build server's sigstore key when pushed; the signature lives in
   the registry next to it (`sha256-<digest>.sig`), and the bootc systems refuse an unsigned image
   of `192.168.2.50:5000` (`/etc/containers/policy.json` and `registries.d/50-distro-builder.yaml`
   from the generic overlay of `image/arkdep-build.d/depends`, shared with the arkdep images; public
   key `keys/distro-builder-sigstore.pub` copied to `/etc/pki/containers/distro-builder.pub`).
-  The status page marks each image "signada" or "sense signar".
+  The status page marks each image "signada" or "sense signar". A build without the signing key
+  fails instead of pushing an image the clients would refuse.
 - `bootc/prune <recipe>` keeps the newest 4 dated images (`KEEP`), with their signatures, deletes
   the signatures of images no tag names any more (a second build of the same day replaces the
   image of that date), and garbage-collects the registry (`--dry-run` shows what it would do). Both run under the same lock as the arkdep builds, one at a time.

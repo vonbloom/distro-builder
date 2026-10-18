@@ -1,12 +1,43 @@
 # bootc images (`bootc/`)
 
-- `build-bootc@<recipe>`: `bootc/build` (podman build `--pull=always --no-cache --no-hostname`,
-  package list to `/mnt/repo/bootc/<recipe>/<recipe>-<date>.pkgs`, chunkah rechunk into an OCI
-  directory layout in `/var/tmp` (`-o oci:`, gzip layers), pushed as it is by skopeo
-  (`copy --preserve-digests`) to `192.168.2.50:5000/<recipe>:<date>` (signed) and `:latest`, then
-  remove the local image; that part is `lib/push-image.sh`, shared with the userland image), then
-  `bootc/prune` and `image/notify-image` with `REPO_PATH=/mnt/repo/bootc/<recipe> KIND=bootc`.
-  Weekly, Sunday 13:00 Europe/Madrid.
+- `build-bootc@<recipe>`: `bootc/build` (podman build `--pull=newer --no-cache --no-hostname`:
+  `newer` keeps the local base image when Docker Hub does not answer, the build upgrades its
+  packages anyway; package list to `/mnt/repo/bootc/<recipe>/candidate.packages`, and no push
+  with more than 20 % fewer packages than the newest `<recipe>-<date>.pkgs`, `ALLOW_FEWER_PACKAGES=1`
+  for a recipe that drops them on purpose; chunkah rechunk into an OCI directory layout in
+  `/var/tmp` (`-o oci:`, gzip layers), pushed as it is by skopeo (`copy --preserve-digests`) to
+  `192.168.2.50:5000/<recipe>:candidate`, signed, then remove the local image; that part is
+  `push_image` in `lib/push-image.sh`, shared with the userland image), then `bootc/test` (below).
+  Only when it passes does `tag_image` (same file) point `<date>` and `latest` at the candidate:
+  its manifest copied byte for byte through the registry API, so the digest and the signature are
+  the candidate's. The list becomes `<recipe>-<date>.pkgs`, then `bootc/prune` and
+  `image/notify-image` with `REPO_PATH=/mnt/repo/bootc/<recipe> KIND=bootc`. Weekly, Sunday 13:00
+  Europe/Madrid.
+- A failure is retried once, 30 min later and without holding the lock meanwhile:
+  `Restart=on-failure`, `RestartMode=direct` (no `OnFailure=` for the first failure),
+  `RestartPreventExitStatus=99`, and `lib/retry-once` exits 99 when `NRestarts` is already 1, so
+  `notify-failure@` reports only the retry's failure. `NRestarts` is reset by every start (timer,
+  status page, by hand). The retry runs the `git pull` again.
+- `bootc/test <image>` (since 2026-10-18): `podman pull --signature-policy` with the generic
+  overlay's `policy.json` pointed at `keys/distro-builder-sigstore.pub` (what the clients check: a
+  missing signature or blob fails here), `bootc install to-disk --via-loopback --generic-image`
+  (no firmware boot entry on the build server) onto a sparse 20 GB raw file in `/var/tmp`, with
+  the T480's `rootflags=compress=zstd:1,noatime` and `console=ttyS0
+  systemd.journald.forward_to_console=1`, then QEMU (KVM, q35, Debian's OVMF 4M, no network)
+  until systemd's "Startup finished" (pass) or a line matching `FAILURE`, or `BOOT_TIMEOUT` (fail:
+  the matching lines and the tail go to the journal and so to the notification, the whole serial
+  log to `candidate.log` next to the package lists). The journal on the console also catches
+  failures after the getty has started. Not a failure: "FILE CORRUPTED" (the btrfs fs-verity bug,
+  below). A unit that fails only in a VM gets an exception in `FAILURE`, never removed from the
+  recipe. Needs `/dev/kvm` (VM 202 `cpu: host`, nested KVM on zeus) and `qemu-system-x86` +
+  `ovmf` (homelab "Build server" play). Not tested: hardware drivers, the desktop, and the
+  upgrade from the previous image (the `/etc` merge). First run (2026-10-18, `t480:2026-10-11`):
+  67 s in all (pull, install, boot), "Startup finished in ... = 12.6s". Its serial log has errors
+  that are no unit failures and do not fail the test: systemd-resolved "Failed to open
+  /etc/resolv.conf: Permission denied" (a fresh install only, before tmpfiles links it), and, on
+  the T480 too, `systemd-tmpfiles` "fchmod() of / failed: Read-only file system" and
+  `set-wireless-regdom` exiting 1. Its EXIT trap runs with `set +e`: with `set -e` the second
+  `podman rmi` of an image already removed made a passed test exit 1.
 - Build and prune run under `/run/build-image.lock` with the other builds: memory, and the
   registry's `garbage-collect` must never run during a push (it deletes blobs of unfinished
   uploads). prune deletes manifests through the API (`REGISTRY_STORAGE_DELETE_ENABLED`), runs
@@ -17,7 +48,8 @@
   stops the requiring one, prune included).
 - `bootc` comes from `[aur]` (`aur/local/bootc`, without the `selinux` feature, which links
   libselinux), signed: the build trusts `keys/distro-builder.asc` and adds `[aur]` only for that
-  `pacman -S`. Local test runs: `REGISTRY=127.0.0.1:5000 PKGS_DIR=... AUR_SERVER=... AUR_SIGLEVEL=Never`.
+  `pacman -S`. Local test runs: `REGISTRY=127.0.0.1:5000 PKGS_DIR=... AUR_SERVER=... AUR_SIGLEVEL=Never
+  ALLOW_UNSIGNED=1` (as root, with KVM and the Arch OVMF paths of `bootc/test`).
   Test runs on the server: `REPOSITORY=test/<recipe> PKGS_DIR=/var/tmp/...` from a copy of the
   checkout (`git ls-files -z | tar --null -T - -c...`, never edit `/home/admin/distro-builder`:
   its `git pull --ff-only` would fail), then delete the test manifests through the registry API.
@@ -29,16 +61,27 @@
   The push went from `podman load` + `podman push` (an uncompressed import of ~3.5 GB, then
   recompression) to skopeo on 2026-10-09: the first image pushed that way uploads, and clients
   download, every layer once (podman's gzip bytes differ from chunkah's).
+- The CachyOS key is `keys/cachyos.asc` (exported from `cachyos-keyring` 20240331, fingerprint
+  `882DCFE48E2051D48E2562ABF3B607488DB35A47`, the same key keyserver.ubuntu.com serves) and
+  `cachyos-keyring` comes from `[cachyos]`: until 2026-10-18 each build fetched the key from the
+  keyserver and the keyring from a fixed URL, two outside services that could fail the build. The
+  arkdep recipe (`common/extensions/pre_build.sh`) and the userland image still do.
+- `push_image` labels the image `org.opencontainers.image.revision` with the checkout's commit
+  (`git describe --always --dirty --abbrev=40`; `safe.directory` because root runs git in admin's
+  checkout; `unknown` in a copy without `.git`): which change built an image that misbehaves.
 - `bootc/overlay/` holds files only bootc images need: `@{HOMEDIRS}+=/var/home/` for AppArmor
   (`/home` links to `/var/home`), `bootc-update`, the random seed unit. The registry's client
   config (`/etc/containers`: insecure in `registries.conf.d`, `registries.d`, `policy.json`) lives
   in the generic overlay of `image/arkdep-build.d/depends` since 2026-10-09: the arkdep images
   pull the userland image from the registry too. The key: `build-recipe.sh` here,
   `common/extensions/post_install.sh` for arkdep (`image/build` mounts `keys/`).
-- Signing (sigstore, since 2026-10-08): `bootc/build` pushes the dated tag with
+- Signing (sigstore, since 2026-10-08): `bootc/build` pushes the candidate with
   `--sign-by-sigstore-private-key /etc/distro-builder/sigstore/distro-builder.private
-  --sign-passphrase-file .../passphrase` (root only, restored from the homelab vault) and `latest`
-  unsigned (same digest, same signature). The push goes to `192.168.2.50:5000`, not localhost: the
+  --sign-passphrase-file .../passphrase` (root only, restored from the homelab vault); the dated
+  tag and `latest` get the same manifest (same digest, same signature). Without the key
+  `push_image` fails (`ALLOW_UNSIGNED=1` for local test runs): until 2026-10-18 it pushed unsigned
+  with a warning, and every client would have refused the image and stopped updating without a
+  word. The push goes to `192.168.2.50:5000`, not localhost: the
   signature names the reference it was pushed as, and the clients' policy uses `matchRepository`.
   skopeo (like podman) only writes sigstore attachments with `use-sigstore-attachments` in
   registries.d: the server gets the generic overlay's `registries.d/50-distro-builder.yaml` from
@@ -51,7 +94,9 @@
   and those of images replaced by a second build of the same day (the dated tag and `latest` move
   to the new image; until 2026-10-09 the old one stayed, untagged, with its signature, ~1 GiB
   each, because the garbage collection only ran when a dated tag was deleted). Deleting such a
-  signature triggers the collection, which removes the untagged image. `prune --dry-run` lists it all. Check a policy by hand with skopeo in a container:
+  signature triggers the collection, which removes the untagged image. `candidate` is not a date:
+  prune keeps it; after a failed boot test it names the failed image until the next build moves
+  it, and then prune deletes that image's signature and the collection the image. `prune --dry-run` lists it all. Check a policy by hand with skopeo in a container:
   `skopeo copy --policy P --registries.d D --src-tls-verify=false docker://192.168.2.50:5000/t480:latest dir:/tmp/x`
   (an unsigned image: "A signature was required, but no signature exists").
 - Updates on bootc systems: `bootc-update.timer` (`bootc/overlay`, enabled by `80-bootc.preset` in
