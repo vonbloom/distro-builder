@@ -1,0 +1,6 @@
+# Firmware of fedora-bootc:45 the T480 has no hardware for (linux-firmware only requires
+# linux-firmware-whence, the split packages go one by one). Arch's recipe also left out
+# intel/sof* (audio DSP): the T480's audio is plain HDA
+nvidia-gpu-firmware amd-gpu-firmware amd-ucode-firmware atheros-firmware brcmfmac-firmware
+mt7xxx-firmware nxpwireless-firmware qcom-wwan-firmware tiwilink-firmware cirrus-audio-firmware
+intel-npu-firmware intel-audio-firmware

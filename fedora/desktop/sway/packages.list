@@ -1,0 +1,12 @@
+# Desktop layer "sway" (docs/layers.md, docs/fedora.md). Arch -> Fedora: mesa -> mesa-dri-drivers
+# (VA-API drivers included) + mesa-vulkan-drivers, pipewire-pulse -> pipewire-pulseaudio,
+# xorg-xwayland -> xorg-x11-server-Xwayland, adw-gtk-theme -> adw-gtk3-theme, pactl from
+# pulseaudio-utils (the sway config's volume keys), gnome-keyring's PAM module in gnome-keyring-pam.
+# sway-config-upstream: /etc/sway/config comes from the overlay, not Fedora's sway-config-fedora.
+# Not packaged: ttf-jetbrains-mono-nerd (the waybar icons), installed from a pinned Nerd Fonts
+# release by the Containerfile
+sway sway-config-upstream swaybg swayidle swaylock waybar rofi wlsunset wl-clipboard mako
+foot grim slurp xdg-desktop-portal-gtk xdg-desktop-portal-wlr xorg-x11-server-Xwayland
+pipewire pipewire-pulseaudio wireplumber rtkit pulseaudio-utils
+mesa-dri-drivers mesa-vulkan-drivers
+darkman adw-gtk3-theme gnome-keyring gnome-keyring-pam libnotify glib2

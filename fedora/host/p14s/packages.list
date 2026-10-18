@@ -1,0 +1,5 @@
+# Host layer "p14s", ThinkPad P14s Gen 1 AMD (Ryzen 7 PRO 4750U, Renoir, Intel AX200 Wi-Fi),
+# docs/fedora.md. Arch: amd-ucode -> amd-ucode-firmware, linux-firmware-{amdgpu,intel,realtek} ->
+# amd-gpu-firmware and realtek-firmware (in fedora-bootc) + iwlwifi-mvm-firmware (not in it),
+# vulkan-radeon -> mesa-vulkan-drivers (sway)
+iwlwifi-mvm-firmware

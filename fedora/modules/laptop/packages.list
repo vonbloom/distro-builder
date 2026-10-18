@@ -1,0 +1,3 @@
+# Module "laptop" (docs/layers.md, docs/fedora.md): power, Wi-Fi, backlight, boot splash.
+# tlp without tlp-rdw: tlp-rdw works through NetworkManager's dispatcher, gone here
+tlp iwd brightnessctl wireless-regdb plymouth plymouth-theme-spinner

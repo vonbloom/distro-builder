@@ -24,7 +24,10 @@ lib/      builder.sh (ensure_builder: rebuild a podman builder image when older 
           push-image.sh (chunkah + signed skopeo push to the registry, tag_image: bootc and
           userland images), retry-once (a build unit's single retry, build-bootc@)
 docs/     todo.md: pending improvements (boot time, storage, memory); layers.md: prospect of
-          layered bootc images (base, desktop, host) for every machine, yamaha included
+          layered bootc images (base, desktop, host) for every machine, yamaha included;
+          fedora.md: trial of the host images on fedora-bootc, translation of the recipes
+fedora/   package lists of the Fedora trial per layer (base, modules/, desktop/, host/):
+          packages.list, remove.list (docs/fedora.md)
 ci/       check: static checks (shellcheck, Python syntax, stray files, exec bits, recipe structure),
           run by GitHub Actions on every push (.github/workflows/check.yml)
 bootc/    the recipes as bootc images (trial, the T480): Containerfile, build-recipe.sh,

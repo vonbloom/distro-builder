@@ -1,0 +1,5 @@
+# Host layer "t480", ThinkPad T480 (i7-8650U, UHD 620, Intel 8265 Wi-Fi), docs/fedora.md.
+# Arch: intel-ucode -> microcode_ctl, linux-firmware-{intel,realtek} -> intel-gpu-firmware and
+# realtek-firmware (all three in fedora-bootc) + iwlwifi-mvm-firmware (not in it),
+# intel-media-driver -> libva-intel-media-driver, vulkan-intel -> mesa-vulkan-drivers (sway)
+iwlwifi-mvm-firmware libva-intel-media-driver thermald bolt

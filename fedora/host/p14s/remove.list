@@ -1,0 +1,4 @@
+# Firmware and microcode of fedora-bootc:45 the P14s has no hardware for (see host/t480/remove.list)
+nvidia-gpu-firmware intel-gpu-firmware atheros-firmware brcmfmac-firmware mt7xxx-firmware
+nxpwireless-firmware qcom-wwan-firmware tiwilink-firmware cirrus-audio-firmware intel-npu-firmware
+intel-audio-firmware microcode_ctl

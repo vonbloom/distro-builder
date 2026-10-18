@@ -1,0 +1,21 @@
+# Base layer of the Fedora bootc images (docs/fedora.md): what every machine needs to boot and be
+# administered, on top of quay.io/fedora/fedora-bootc:45. Translated from the arkdep recipe's
+# depends/generic (base part, docs/layers.md). Several per line are fine; # starts a comment.
+# Already in fedora-bootc and so not listed: kernel, dracut, cpio, btrfs-progs, zlib-ng-compat,
+# dbus-broker, iptables-nft, nftables, openssh-server, openssh-clients, sudo, zram-generator,
+# python3 (bootc-update), curl, file, gawk, procps-ng, kbd, vim-minimal (Arch: vi), bluez,
+# systemd-resolved, systemd-timesyncd (in systemd-udev), microcode_ctl, linux-firmware
+
+# The network as on Arch: systemd-networkd (its own package on Fedora) instead of NetworkManager,
+# which remove.list takes out
+systemd-networkd wireguard-tools
+
+# Shells and tools (Arch: git -> git-core, wget -> wget2-wget). zsh-completions is not packaged in
+# Fedora: the host's zsh keeps zsh's own completions, the userland box has the rest
+zsh tmux git-core fzf tree pv diffutils man-db binutils fastfetch wget2-wget
+
+# Disks and firmware updates
+smartmontools nvme-cli fwupd udisks2 dosfstools exfatprogs efibootmgr compsize
+
+# Locales: Fedora installs them per language instead of locale-gen (etc/locale.gen)
+glibc-langpack-ca glibc-langpack-es glibc-langpack-en

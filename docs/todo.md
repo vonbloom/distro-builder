@@ -108,6 +108,11 @@ image's `VERSION_ID` (`initrd-release`); now only when a file it holds changes (
       (its `snapshot_dir /arkdep/snapshots` does not exist under bootc, bootc/README "Missing
       before real use") and `systemd-networkd-wait-online.service` timed out. Neither is part of
       the boot transaction, so the boot test does not see them.
+- [ ] **Fedora bootc trial** (`fedora.md`): the recipes translated on 2026-10-18 (`fedora/`, every
+      package found or replaced, resolved with dnf). Next: the Containerfile (base, modules, sway,
+      host from the lists, the overlays adapted as `fedora.md` lists), the open decisions there,
+      a `t480` build through the same pipeline and boot test, a VM session with sway, then the
+      T480 with `bootc/install`.
 - [ ] **Soft reboot** (systemd `soft-reboot`, `bootc upgrade --soft-reboot`, composefs backend in
       bootc 1.17.1): userspace restarts into the new image on the running kernel, skipping
       firmware, loader, kernel and initrd (T480: 13.1 + 10.9 + 1.3 + 3.3 s of its 35.6 s boot);

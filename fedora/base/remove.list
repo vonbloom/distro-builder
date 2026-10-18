@@ -1,0 +1,9 @@
+# Packages of fedora-bootc:45 the base layer removes (docs/fedora.md). # starts a comment.
+# NetworkManager and its dependents (NetworkManager-cloud-setup, NetworkManager-tui, dracut-network,
+# console-login-helper-messages-issuegen): the network is systemd-networkd + iwd, as on Arch
+NetworkManager NetworkManager-cloud-setup NetworkManager-tui
+# chrony: the time is systemd-timesyncd, as on Arch (81-custom.preset)
+chrony
+# Candidates to slim the image, decided when the Containerfile is written: sssd-* (AD, IPA, LDAP;
+# authselect's local profile may still want sssd-client), clevis-* (LUKS unlocked by TPM2: no LUKS
+# here), toolbox (distrobox instead), avahi
