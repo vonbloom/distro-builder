@@ -130,11 +130,11 @@ to a user account. PulseAudio is fine; upstream it is in maintenance mode.
 
 - **Back up first:** `ser2net.yaml`, `squeezelite.conf`, `/etc/corosync/qnetd`, the SSH host keys
   and the Cinnamon settings. The system files need `sudo` on yamaha.
-- **Installer:** `bootc/install` is written for the T480's layout (ESP, swap, root, separate
-  home). yamaha needs no separate home (`/var/home` lives on the root): `bootc install to-disk` on
-  the mSATA is simpler.
-- **Filesystem:** compressed btrfs hits the 7.2 fs-verity regression (`todo.md`, sealed images).
-  ext4 avoids it and has fs-verity too; check that composefs works on it. Otherwise use btrfs
+- **Installer:** `bootc/install --disk` (since 2026-10-18) partitions the mSATA like a laptop:
+  ESP, swap, ext4 root, ext4 home; it needs no RAM for the image (podman's storage borrows the new
+  home partition), which matters with 7.4 GiB. A smaller `--root-size` leaves more to the home.
+- **Filesystem:** ext4 with fs-verity, the installer's since 2026-10-18 (compressed btrfs hit the
+  7.2 fs-verity regression, `todo.md`, sealed images). Before that the options were ext4 or btrfs
   without compression.
 - **Downtime:** about an hour without Zigbee, music or the QDevice vote. Quorum holds while zeus
   and hera are both up. Afterwards check `pvecm status` (3 votes) and that Home Assistant
@@ -169,5 +169,5 @@ becomes `bootc/layers/host/yamaha` plus `desktop/cinnamon` and the audio modules
   cable is enough).
 - **Brave on the TV:** in the yamaha layer or as a Flatpak. The `userland` box is too heavy for
   this machine.
-- **Filesystem:** ext4, or btrfs without compression.
+- **Filesystem:** decided on 2026-10-18: ext4 with fs-verity, as on the laptops (`bootc/install`).
 - **Timing:** yamaha in phase 1 or after phase 2.

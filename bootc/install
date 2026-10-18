@@ -1,125 +1,253 @@
 #!/usr/bin/env bash
-# Install a bootc image from the build server's registry onto existing partitions, keeping an
-# existing /home partition. The image's signature is checked (sigstore, keys/ of this repository). Run as root from a live system (the installer ISO booted with
-# cow_spacesize=2G, room to install podman; the image goes to a tmpfs, ~5 GB of RAM).
+# Install a bootc image from the build server's registry. Run as root from the installer ISO
+# (/root/install, which has podman, the registry's config and the signature key), or from any Arch
+# live system (podman is installed then: cow_spacesize=2G).
 #
-#   install --image 192.168.2.50:5000/t480:latest --root /dev/nvme0n1p3 --esp /dev/nvme0n1p1 \
-#           --home /dev/nvme0n1p4 --swap /dev/nvme0n1p2 --hostname anubis [--wifi Sputnik.psk]
+# A whole disk (a new machine: everything on the disk is lost):
+#   install --disk /dev/nvme0n1
+#     GPT: 1 GiB ESP, swap the size of the RAM (hibernation), ext4 root (--root-size, 64G), ext4
+#     home on the rest
+# Keeping an existing home partition (a reinstall: only the root partition is formatted):
+#   install --root /dev/nvme0n1p3 --esp /dev/nvme0n1p1 --home /dev/nvme0n1p4 [--swap /dev/nvme0n1p2]
+#     The ESP is reused (other loaders stay); the home partition is mounted, never written, and must
+#     hold the user's directory owned by --uid.
 #
-# The root partition is formatted (btrfs, zstd:1, noatime). The ESP is reused: bootc installs
-# systemd-boot there (other ESP content stays). The home partition is not touched: it is mounted at
-# /var/home (/home links there on bootc systems) with systemd.mount-extra=, and must contain the
-# user's directory owned by --uid. The swap partition is enabled with systemd.swap-extra= and used
-# for hibernation (resume=). The user is created in the installed /etc with the given UID, the
-# groups of the arkdep installer and a password asked here. --wifi copies an iwd profile from the
-# user's directory on the home partition.
+# Other options:
+#   --host <host>           the image 192.168.2.50:5000/<host>:latest; default from the machine
+#                           model, otherwise a menu of the registry's hosts
+#   --image <reference>     another image instead
+#   --hostname <name>       instead of the image's /etc/hostname
+#   --user <name> --uid <n> default roger, 1000
+#   --password-file <file>  the user's password from its first line, instead of asking
+#   --karg <argument>       one more kernel argument (repeatable; iso/test-install: the serial console)
+#   --yes                   no confirmation before formatting (unattended tests)
+#
+# The root is ext4 with fs-verity (composefs checks every file against its digest), mounted
+# noatime. The home partition is mounted at /var/home (/home links there on bootc systems) and the
+# swap enabled with systemd.mount-extra= / systemd.swap-extra= on the kernel command line, which
+# bootc keeps across updates; resume= points at the swap. The user gets the groups of the arkdep
+# installer and the password asked here (root stays locked: sudo); Wi-Fi networks joined in the
+# live system are copied.
 
 set -euo pipefail
 
-IMAGE='' ROOT='' ESP='' HOME_PART='' SWAP='' HOSTNAME_NEW='' WIFI=''
+REGISTRY=192.168.2.50:5000
+IMAGE='' HOST='' DISK='' ROOT='' ESP='' HOME_PART='' SWAP='' HOSTNAME_NEW='' PASSWORD_FILE=''
+ROOT_SIZE=64G YES=0 KARGS_EXTRA=()
 USER_NAME=roger USER_UID=1000
 GROUPS_EXTRA=wheel,input,video,render,audio,kvm,libvirt
-REGISTRY=192.168.2.50:5000
-TARGET=/mnt/bootc-target OLDHOME=/mnt/bootc-home
+TARGET=/mnt/bootc-target HOMEMNT=/mnt/bootc-home
+STORAGE_ON_HOME=0
 
 die() { echo "error: $*" >&2; exit 1; }
 while (($#)); do
 	case $1 in
-	--image) IMAGE=$2 ;; --root) ROOT=$2 ;; --esp) ESP=$2 ;; --home) HOME_PART=$2 ;;
-	--swap) SWAP=$2 ;; --hostname) HOSTNAME_NEW=$2 ;; --wifi) WIFI=$2 ;;
-	--user) USER_NAME=$2 ;; --uid) USER_UID=$2 ;;
+	--yes) YES=1; shift; continue ;;
+	--disk) DISK=$2 ;; --root-size) ROOT_SIZE=$2 ;;
+	--root) ROOT=$2 ;; --esp) ESP=$2 ;; --home) HOME_PART=$2 ;; --swap) SWAP=$2 ;;
+	--host) HOST=$2 ;; --image) IMAGE=$2 ;; --hostname) HOSTNAME_NEW=$2 ;;
+	--user) USER_NAME=$2 ;; --uid) USER_UID=$2 ;; --password-file) PASSWORD_FILE=$2 ;;
+	--karg) KARGS_EXTRA+=("$2") ;;
 	*) die "unknown option $1" ;;
 	esac
 	shift 2
 done
 [[ $EUID -eq 0 ]] || die "run as root"
-[[ -n $IMAGE && -n $ROOT && -n $ESP && -n $HOSTNAME_NEW ]] || die "--image, --root, --esp and --hostname are required"
-for dev in "$ROOT" "$ESP" ${HOME_PART:+"$HOME_PART"} ${SWAP:+"$SWAP"}; do
-	[[ $(lsblk -dno TYPE "$dev" 2>/dev/null) == part ]] || die "$dev is not a partition"
-done
-[[ $(printf '%s\n' "$ROOT" "$ESP" $HOME_PART $SWAP | sort | uniq -d) == "" ]] || die "a partition is used twice"
-[[ $(lsblk -dno FSTYPE "$ESP") == vfat ]] || die "$ESP is not a vfat ESP"
-[[ -z $SWAP || $(lsblk -dno FSTYPE "$SWAP") == swap ]] || die "$SWAP is not a swap partition"
-findmnt -rn -S "$ROOT" >/dev/null && die "$ROOT is mounted"
+if [[ -n $DISK ]]; then
+	[[ -z $ROOT$ESP$HOME_PART$SWAP ]] || die "--disk takes the whole disk: no --root, --esp, --home or --swap"
+	[[ $(lsblk -dno TYPE "$DISK" 2>/dev/null) =~ ^(disk|loop)$ ]] || die "$DISK is not a disk"
+	[[ $ROOT_SIZE =~ ^[0-9]+G$ ]] || die "--root-size takes GiB, e.g. 64G"
+else
+	[[ -n $ROOT && -n $ESP && -n $HOME_PART ]] ||
+		die "either --disk, or --root, --esp and --home (and --swap) of the existing partitions"
+	for dev in "$ROOT" "$ESP" "$HOME_PART" ${SWAP:+"$SWAP"}; do
+		[[ $(lsblk -dno TYPE "$dev" 2>/dev/null) == part ]] || die "$dev is not a partition"
+	done
+	[[ $(printf '%s\n' "$ROOT" "$ESP" "$HOME_PART" $SWAP | sort | uniq -d) == "" ]] || die "a partition is used twice"
+	[[ $(lsblk -dno FSTYPE "$ESP") == vfat ]] || die "$ESP is not a vfat ESP"
+	[[ -z $SWAP || $(lsblk -dno FSTYPE "$SWAP") == swap ]] || die "$SWAP is not a swap partition"
+	findmnt -rn -S "$ROOT" >/dev/null && die "$ROOT is mounted"
+fi
+[[ -z $PASSWORD_FILE || -r $PASSWORD_FILE ]] || die "cannot read $PASSWORD_FILE"
 
 uuid() { blkid -s UUID -o value "$1"; }
 # A failed run leaves nothing mounted, so it can simply be run again
 cleanup() {
+	set +e
 	mountpoint -q "$TARGET" && umount -R "$TARGET"
-	mountpoint -q "$OLDHOME" && umount "$OLDHOME"
+	((STORAGE_ON_HOME)) && mountpoint -q /var/lib/containers && umount /var/lib/containers
+	mountpoint -q "$HOMEMNT" && umount "$HOMEMNT"
 	return 0
 }
 trap cleanup EXIT
 
-# The home partition must hold the user's directory, owned by the UID the user gets here
-if [[ -n $HOME_PART ]]; then
-	mkdir -p "$OLDHOME"
-	mount -o ro "$HOME_PART" "$OLDHOME"
-	[[ -d $OLDHOME/$USER_NAME ]] || die "$HOME_PART has no $USER_NAME directory"
-	owner=$(stat -c %u "$OLDHOME/$USER_NAME")
-	[[ $owner == "$USER_UID" ]] || die "$OLDHOME/$USER_NAME belongs to UID $owner, not $USER_UID"
-	[[ -z $WIFI || -f $OLDHOME/$USER_NAME/$WIFI ]] || die "no $WIFI in $USER_NAME's directory"
+# --- Network: the registry is on the LAN ---
+registry_reachable() { curl -sf -o /dev/null --max-time 5 "http://$REGISTRY/v2/"; }
+if ! registry_reachable; then
+	wifi=$(iw dev 2>/dev/null | awk '$1 == "Interface" { print $2; exit }')
+	[[ -n $wifi && -t 0 ]] || die "$REGISTRY is not reachable and there is no Wi-Fi interface to join"
+	iwctl station "$wifi" scan
+	sleep 3
+	iwctl station "$wifi" get-networks
+	read -rp "SSID: " ssid
+	iwctl station "$wifi" connect "$ssid" # asks for the passphrase
+	for _ in {1..20}; do
+		registry_reachable && break
+		sleep 1
+	done
+	registry_reachable || die "$REGISTRY is still not reachable"
 fi
 
-lsblk -o NAME,SIZE,FSTYPE,LABEL,MOUNTPOINTS "/dev/$(lsblk -dno PKNAME "$ROOT")"
-cat <<EOF
+# --- Image: the host from the machine model, otherwise chosen from the registry's hosts ---
+if [[ -z $IMAGE ]]; then
+	if [[ -z $HOST ]]; then
+		case $(</sys/class/dmi/id/product_name) in
+		20Y1*) HOST=p14s ;;
+		20L5* | 20L6*) HOST=t480 ;;
+		esac
+		if [[ -n $HOST && $YES != 1 ]]; then
+			read -rp "Detected $(</sys/class/dmi/id/product_version), host $HOST. Use it? [Y/n] " answer
+			[[ $answer =~ ^[nN] ]] && HOST=
+		fi
+	fi
+	if [[ -z $HOST ]]; then
+		# The registry's repositories, without the userland image and the test builds
+		mapfile -t hosts < <(curl -sf "http://$REGISTRY/v2/_catalog" | grep -o '"[^"]*"' | tr -d '"' |
+			grep -vxE 'repositories|userland|test/.*')
+		((${#hosts[@]})) || die "No host images in $REGISTRY"
+		[[ -t 0 ]] || die "no --host, and the machine model is not a known host"
+		PS3="Host: "
+		select HOST in "${hosts[@]}"; do [[ -n $HOST ]] && break; done
+	fi
+	IMAGE=$REGISTRY/$HOST:latest
+fi
 
-Image:    $IMAGE
-Root:     $ROOT  ($(lsblk -dno FSTYPE,LABEL,SIZE "$ROOT"))  WILL BE FORMATTED (btrfs)
-ESP:      $ESP   (systemd-boot is installed there)
-Home:     ${HOME_PART:-none}  ${HOME_PART:+(kept, mounted at /var/home)}
-Swap:     ${SWAP:-none}
-Hostname: $HOSTNAME_NEW, user $USER_NAME (UID $USER_UID)
-EOF
-read -rp "Type the root partition ($ROOT) to format it and install: " answer
-[[ $answer == "$ROOT" ]] || die "aborted"
+# --- What will be formatted, and the confirmation ---
+if [[ -n $DISK ]]; then
+	ram_gib=$(awk '/^MemTotal/ { print int($2 / 1048576 + 0.99) }' /proc/meminfo)
+	need=$((1 + ram_gib + ${ROOT_SIZE%G} + 16)) # ESP, swap, root, a home of 16 GiB at least
+	size_gib=$(($(blockdev --getsize64 "$DISK") / 1073741824))
+	((size_gib >= need)) || die "$DISK has $size_gib GiB, needs $need (ESP, ${ram_gib}G swap, $ROOT_SIZE root, 16G home)"
+	lsblk -o NAME,SIZE,FSTYPE,LABEL,MODEL "$DISK"
+	cat <<-EOF
 
-read -rsp "Password for $USER_NAME: " pw1; echo
-read -rsp "Again: " pw2; echo
-[[ -n $pw1 && $pw1 == "$pw2" ]] || die "passwords differ or are empty"
+	Image:  $IMAGE
+	Disk:   $DISK ($size_gib GiB)  EVERYTHING ON IT WILL BE LOST
+	        1 GiB ESP, ${ram_gib} GiB swap, $ROOT_SIZE ext4 root, the rest ext4 home
+	User:   $USER_NAME (UID $USER_UID)${HOSTNAME_NEW:+, hostname $HOSTNAME_NEW}
+	EOF
+	if [[ $YES != 1 ]]; then
+		read -rp "Type yes to wipe $DISK and install: " answer
+		[[ $answer == yes ]] || die "aborted"
+	fi
+else
+	# The home partition must hold the user's directory, owned by the UID the user gets here
+	mkdir -p "$HOMEMNT"
+	mount -o ro "$HOME_PART" "$HOMEMNT"
+	[[ -d $HOMEMNT/$USER_NAME ]] || die "$HOME_PART has no $USER_NAME directory"
+	owner=$(stat -c %u "$HOMEMNT/$USER_NAME")
+	[[ $owner == "$USER_UID" ]] || die "$HOMEMNT/$USER_NAME belongs to UID $owner, not $USER_UID"
+	umount "$HOMEMNT"
+	lsblk -o NAME,SIZE,FSTYPE,LABEL,MOUNTPOINTS "/dev/$(lsblk -dno PKNAME "$ROOT")"
+	cat <<-EOF
+
+	Image:  $IMAGE
+	Root:   $ROOT  ($(lsblk -dno FSTYPE,LABEL,SIZE "$ROOT"))  WILL BE FORMATTED (ext4)
+	ESP:    $ESP   (systemd-boot is installed there)
+	Home:   $HOME_PART  (kept, mounted at /var/home)
+	Swap:   ${SWAP:-none}
+	User:   $USER_NAME (UID $USER_UID)${HOSTNAME_NEW:+, hostname $HOSTNAME_NEW}
+	EOF
+	if [[ $YES != 1 ]]; then
+		read -rp "Type the root partition ($ROOT) to format it and install: " answer
+		[[ $answer == "$ROOT" ]] || die "aborted"
+	fi
+fi
+
+if [[ -n $PASSWORD_FILE ]]; then
+	pw1=$(head -n1 "$PASSWORD_FILE")
+	[[ -n $pw1 ]] || die "$PASSWORD_FILE is empty"
+else
+	read -rsp "Password for $USER_NAME: " pw1; echo
+	read -rsp "Again: " pw2; echo
+	[[ -n $pw1 && $pw1 == "$pw2" ]] || die "passwords differ or are empty"
+fi
 hash=$(openssl passwd -6 -stdin <<<"$pw1")
 unset pw1 pw2
 
-# podman in the live system, and the build server's plain-HTTP registry. The live root is an
-# overlayfs, which podman's overlay storage cannot sit on: its storage goes to a tmpfs
-command -v podman >/dev/null || pacman -Sy --noconfirm podman
-if [[ $(findmnt -no FSTYPE /) == overlay ]] && ! mountpoint -q /var/lib/containers; then
-	mkdir -p /var/lib/containers
-	mount -t tmpfs -o size=12G tmpfs /var/lib/containers
+# --- Partitions and filesystems ---
+old_root_uuid=''
+if [[ -n $DISK ]]; then
+	wipefs -a "$DISK" >/dev/null
+	sgdisk -Z "$DISK" >/dev/null
+	sgdisk -n 1:0:+1G -t 1:ef00 -c 1:EFI -n "2:0:+${ram_gib}G" -t 2:8200 -c 2:SWAP \
+		-n "3:0:+$ROOT_SIZE" -t 3:8300 -c 3:ROOT -n 4:0:0 -t 4:8300 -c 4:HOME "$DISK" >/dev/null
+	partprobe "$DISK"
+	udevadm settle
+	mapfile -t parts < <(lsblk -nrpo NAME,TYPE "$DISK" | awk '$2 == "part" { print $1 }')
+	((${#parts[@]} == 4)) || die "expected 4 partitions on $DISK, found ${#parts[@]}"
+	ESP=${parts[0]} SWAP=${parts[1]} ROOT=${parts[2]} HOME_PART=${parts[3]}
+	for part in "${parts[@]}"; do wipefs -a "$part" >/dev/null; done
+	mkfs.fat -F 32 -n EFI "$ESP" >/dev/null
+	mkswap -L SWAP "$SWAP" >/dev/null
+	mkfs.ext4 -q -L HOME "$HOME_PART"
+else
+	old_root_uuid=$(uuid "$ROOT" || true)
+	# wipefs and an explicit type: otherwise mount may still see the old filesystem (udev's cached probe)
+	wipefs -a "$ROOT" >/dev/null
 fi
-mkdir -p /etc/containers/registries.conf.d
-printf '[[registry]]\nlocation = "%s"\ninsecure = true\n' "$REGISTRY" \
-	>/etc/containers/registries.conf.d/50-distro-builder.conf
-# The image must carry the build server's sigstore signature (bootc/build), like every update on
-# the installed system (policy.json of the base layer, bootc/layers/base): the
-# public key comes from this repository, like this script; the signature from the registry, next
-# to the image
-mkdir -p /etc/pki/containers /etc/containers/registries.d
-curl -fsSL -o /etc/pki/containers/distro-builder.pub \
-	https://raw.githubusercontent.com/vonbloom/distro-builder/main/keys/distro-builder-sigstore.pub
-printf 'docker:\n  %s:\n    use-sigstore-attachments: true\n' "$REGISTRY" \
-	>/etc/containers/registries.d/50-distro-builder.yaml
-cat >/etc/containers/policy.json <<EOF
-{
-    "default": [{"type": "insecureAcceptAnything"}],
-    "transports": {
-        "docker": {
-            "$REGISTRY": [{"type": "sigstoreSigned", "keyPath": "/etc/pki/containers/distro-builder.pub",
-                           "signedIdentity": {"type": "matchRepository"}}]
-        },
-        "docker-daemon": {"": [{"type": "insecureAcceptAnything"}]}
-    }
-}
-EOF
+mkfs.ext4 -q -F -O verity -L ROOT "$ROOT"
+udevadm settle
+
+# --- podman, the registry's config and the image ---
+# The ISO has them; another live system gets podman from the mirrors and the config here
+command -v podman >/dev/null || pacman -Sy --noconfirm podman
+if [[ ! -f /etc/pki/containers/distro-builder.pub ]]; then
+	mkdir -p /etc/containers/registries.conf.d /etc/containers/registries.d /etc/pki/containers
+	printf '[[registry]]\nlocation = "%s"\ninsecure = true\n' "$REGISTRY" \
+		>/etc/containers/registries.conf.d/50-distro-builder.conf
+	printf 'docker:\n  %s:\n    use-sigstore-attachments: true\n' "$REGISTRY" \
+		>/etc/containers/registries.d/50-distro-builder.yaml
+	curl -fsSL -o /etc/pki/containers/distro-builder.pub \
+		https://raw.githubusercontent.com/vonbloom/distro-builder/main/keys/distro-builder-sigstore.pub
+	cat >/etc/containers/policy.json <<-EOF
+	{
+	    "default": [{"type": "insecureAcceptAnything"}],
+	    "transports": {
+	        "docker": {
+	            "$REGISTRY": [{"type": "sigstoreSigned", "keyPath": "/etc/pki/containers/distro-builder.pub",
+	                           "signedIdentity": {"type": "matchRepository"}}]
+	        },
+	        "docker-daemon": {"": [{"type": "insecureAcceptAnything"}]}
+	    }
+	}
+	EOF
+fi
+# podman's overlay storage cannot sit on the live overlayfs root. A whole disk lends it the new home
+# partition (no RAM needed; emptied afterwards), a reinstall a tmpfs (~5 GB of RAM: the home
+# partition is not written)
+if [[ $(findmnt -no FSTYPE /var/lib/containers 2>/dev/null || findmnt -no FSTYPE /) == overlay ]]; then
+	mkdir -p /var/lib/containers
+	if [[ -n $DISK ]]; then
+		mkdir -p "$HOMEMNT"
+		mount "$HOME_PART" "$HOMEMNT"
+		mkdir -p "$HOMEMNT/.bootc-install"
+		mount --bind "$HOMEMNT/.bootc-install" /var/lib/containers
+		STORAGE_ON_HOME=1
+	else
+		mount -t tmpfs -o size=12G tmpfs /var/lib/containers
+	fi
+fi
+# podman stages blobs in TMPDIR (/var/tmp by default: the live system's overlay, 256 MiB without
+# cow_spacesize=)
+mkdir -p /var/lib/containers/.tmp
+export TMPDIR=/var/lib/containers/.tmp
+# Signature checked by /etc/containers/policy.json: the image must carry the build server's
+# sigstore signature (bootc/build), like every update on the installed system
 podman pull "$IMAGE"
 
-old_root_uuid=$(uuid "$ROOT" || true)
-# wipefs and an explicit type: otherwise mount still sees the old ext4 (udev's cached probe)
-wipefs -a "$ROOT"
-mkfs.btrfs -f -L ROOT "$ROOT"
-udevadm settle
 mkdir -p "$TARGET"
-mount -t btrfs -o compress=zstd:1,noatime "$ROOT" "$TARGET"
+mount -t ext4 -o noatime "$ROOT" "$TARGET"
 mkdir -p "$TARGET/boot"
 mount "$ESP" "$TARGET/boot"
 
@@ -136,9 +264,10 @@ for entry in "$TARGET"/boot/loader/entries/bootc_*.conf; do
 	[[ -n $dir ]] && rm -r "${TARGET:?}/boot/$dir"
 done
 
-kargs=(--karg "rootflags=compress=zstd:1,noatime")
-[[ -n $HOME_PART ]] && kargs+=(--karg "systemd.mount-extra=UUID=$(uuid "$HOME_PART"):/var/home:$(lsblk -dno FSTYPE "$HOME_PART"):defaults")
+kargs=(--karg rootflags=noatime
+	--karg "systemd.mount-extra=UUID=$(uuid "$HOME_PART"):/var/home:$(lsblk -dno FSTYPE "$HOME_PART"):defaults")
 [[ -n $SWAP ]] && kargs+=(--karg "systemd.swap-extra=UUID=$(uuid "$SWAP"):pri=10" --karg "resume=UUID=$(uuid "$SWAP")")
+for karg in "${KARGS_EXTRA[@]}"; do kargs+=(--karg "$karg"); done
 
 # /target, not $TARGET: /mnt is a link to var/mnt in a bootc image, which does not exist there
 podman run --rm --privileged --pid=host --ipc=host --security-opt label=type:unconfined_t \
@@ -153,7 +282,7 @@ deploys=("$TARGET"/state/deploy/*/)
 deploy=${deploys[0]%/}
 var=$TARGET/state/os/default/var
 
-echo "$HOSTNAME_NEW" >"$deploy/etc/hostname"
+[[ -n $HOSTNAME_NEW ]] && echo "$HOSTNAME_NEW" >"$deploy/etc/hostname"
 useradd --prefix "$deploy" -u "$USER_UID" -U -G "$GROUPS_EXTRA" -s /usr/bin/zsh \
 	-d "/var/home/$USER_NAME" -M "$USER_NAME"
 usermod --prefix "$deploy" -p "$hash" "$USER_NAME"
@@ -161,9 +290,27 @@ for f in subuid subgid; do
 	touch "$deploy/etc/$f"
 	grep -q "^$USER_NAME:" "$deploy/etc/$f" || echo "$USER_NAME:100000:65536" >>"$deploy/etc/$f"
 done
-if [[ -n $WIFI ]]; then
-	install -D -m 600 "$OLDHOME/$USER_NAME/$WIFI" "$var/lib/iwd/$WIFI"
-	chmod 700 "$var/lib/iwd"
+# Wi-Fi networks joined in the live system (iwd keeps them in a root-only directory, mode 600)
+if compgen -G '/var/lib/iwd/*' >/dev/null; then
+	install -d -m 700 "$var/lib/iwd"
+	cp -r /var/lib/iwd/. "$var/lib/iwd/"
+fi
+
+# A new home partition: the podman storage lent to the install goes, the user's directory comes
+# from the image's /etc/skel
+if [[ -n $DISK ]]; then
+	if ((STORAGE_ON_HOME)); then
+		umount /var/lib/containers
+		STORAGE_ON_HOME=0
+		rm -rf "${HOMEMNT:?}/.bootc-install"
+	else
+		mkdir -p "$HOMEMNT"
+		mount "$HOME_PART" "$HOMEMNT"
+	fi
+	install -d -m 700 -o "$USER_UID" -g "$USER_UID" "$HOMEMNT/$USER_NAME"
+	cp -a "$deploy/etc/skel/." "$HOMEMNT/$USER_NAME/"
+	chown -R "$USER_UID:$USER_UID" "$HOMEMNT/$USER_NAME"
+	umount "$HOMEMNT"
 fi
 
 # bootc install does not add a firmware boot entry (only the EFI/BOOT/BOOTX64.EFI fallback), and
@@ -193,4 +340,4 @@ auto-firmware yes
 EOF
 
 fstrim -v "$TARGET" || true
-echo "Installed. Remove the USB stick and reboot; then: bootc status"
+echo "Installed $IMAGE. Remove the installation media and reboot; then: sudo bootc status"

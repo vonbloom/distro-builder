@@ -18,8 +18,8 @@ directory.
 - `apply-layers`: installs each layer's packages and copies its overlay, then presets and
   locale-gen.
 - `build`, `prune`: build, rechunk and push; retention in the registry.
-- `install`: installs an image from the installer ISO on existing partitions, keeping `/home` (see
-  below).
+- `install`: installs an image from the installer ISO (`/root/install`), on a whole disk or keeping a
+  `/home` partition (see below).
 
 ## Building and updates
 
@@ -59,26 +59,35 @@ directory.
   serves plain HTTP on port 5000; the images list it as insecure in
   `/etc/containers/registries.conf.d/50-distro-builder.conf`. A bootc system follows a recipe with
   `bootc switch 192.168.2.50:5000/<recipe>:latest` and updates with `bootc upgrade`.
-- `bootc/install` installs an image on existing partitions from the installer ISO, keeping a
-  `/home` partition: see [below](#installing-a-bootc-image-keeping-home).
+- `bootc/install` installs an image from the installer ISO, on a whole disk or keeping a `/home`
+  partition: see [below](#installing-a-bootc-image).
 
-## Installing a bootc image (keeping /home)
+## Installing a bootc image
 
-`bootc/install` formats the root partition (btrfs, `zstd:1`, `noatime`), reuses the ESP
-(systemd-boot, first in the firmware boot order, a 5 s menu; other loaders stay), keeps the `/home`
-partition untouched (mounted at `/var/home`), enables a swap partition for hibernation, and creates
-the user (UID 1000, the arkdep installer's groups), the hostname and the Wi-Fi profile. Written for
-the T480 (Artix: ESP `p1`, swap `p2`, root `p3`, ext4 home `p4`) and rehearsed in a VM with the same
-layout.
+`bootc/install` (on the installer ISO as `/root/install`) installs a host's image from the
+registry, in one of two ways:
+
+- **A whole disk** (`--disk`, a new machine; everything on the disk is lost): GPT with a 1 GiB ESP,
+  a swap partition the size of the RAM (hibernation), an ext4 root (`--root-size`, 64 GiB) and an
+  ext4 home on the rest.
+- **Keeping a home partition** (`--root`, `--esp`, `--home`, `--swap`: a reinstall): only the root
+  partition is formatted; the ESP is reused (other loaders stay) and the home partition is mounted
+  at `/var/home` untouched.
+
+Either way the root is ext4 with fs-verity, systemd-boot comes first in the firmware boot order
+with a 5 s menu, the swap is enabled with `resume=`, and the user (UID 1000, the arkdep installer's
+groups) gets the password asked; root stays locked (sudo). The host comes from the machine model
+(`20Y1` p14s, `20L5`/`20L6` t480) or a menu of the registry's images, the hostname from the image
+(`--hostname` to change it), and Wi-Fi networks joined in the live system are copied. Every
+answer can be given as an option (`bootc/install` header); `iso/test-install` runs both ways
+unattended in a VM (see [iso/README.md](../iso/README.md)).
 
 Before, on the old system:
 
 1. Back up what cannot be lost: the root partition is formatted (the home partition is not, but a
    wrong partition name would be).
-2. The user's directory on the home partition must belong to UID 1000 (`--uid` otherwise).
-3. Copy the Wi-Fi profile into it (iwd keeps it in a root-only directory):
-   `sudo install -m 600 -o roger -g roger /var/lib/iwd/<SSID>.psk ~/`.
-4. Note the partitions: `lsblk -f`.
+2. Keeping the home: the user's directory on the home partition must belong to UID 1000 (`--uid`
+   otherwise); note the partitions with `lsblk -f`.
 
 Install:
 
@@ -94,33 +103,32 @@ Install:
    sudo dd if="$iso" of=/dev/sdX bs=4M oflag=direct conv=fsync status=progress
    ```
 
-   Boot it in UEFI mode (ThinkPad: F12). At the boot menu press `e` and add `cow_spacesize=2G` to
-   the kernel options: the live system installs podman (the image goes to a tmpfs, ~5 GB of RAM).
-2. Network: a cable, or `iwctl station wlan0 connect <SSID>`.
-3. Download and run the installer (it lists the disk, asks to type the root partition to confirm,
-   and asks the user's password twice):
+2. Boot it in UEFI mode (ThinkPad: F12; Secure Boot off).
+3. Network: a cable, or `iwctl station wlan0 connect <SSID>` (the installer offers it too).
+4. Run the installer. It shows what it will format and asks to confirm, then the user's password
+   twice:
 
    ```sh
-   curl -O https://raw.githubusercontent.com/vonbloom/distro-builder/main/bootc/install
-   bash install --image 192.168.2.50:5000/t480:latest --root /dev/nvme0n1p3 --esp /dev/nvme0n1p1 \
-       --home /dev/nvme0n1p4 --swap /dev/nvme0n1p2 --hostname anubis --wifi <SSID>.psk
+   /root/install --disk /dev/nvme0n1                      # a whole disk
+   /root/install --root /dev/nvme0n1p3 --esp /dev/nvme0n1p1 --home /dev/nvme0n1p4 \
+       --swap /dev/nvme0n1p2                              # the T480: keep its home partition
    ```
 
-   It stops before formatting anything if a partition, the user's directory or the Wi-Fi file is
-   wrong, and can be run again after a failure.
-4. Reboot and remove the USB stick.
+   It stops before formatting anything if a partition or the user's directory is wrong, and can be
+   run again after a failure.
+5. Reboot and remove the USB stick.
 
 First session:
 
 1. Log in on tty1: sway starts.
 2. If the home partition has an older `~/.dotfiles` checkout, update it (`git stash` local changes
    first) and restow: `cd ~/.dotfiles && git pull && ./install`. `deploy-userland` only clones the
-   dotfiles when `~/.dotfiles` is missing, and only creates the distroboxes from
-   `~/.config/distrobox/default.ini`.
+   dotfiles when `~/.dotfiles` is missing.
 3. `systemctl --user start deploy-userland` creates `playground` and `userland` and exports the
    apps. It runs by itself when the user manager starts (the first session after boot, SSH too),
-   which on a home with older dotfiles happened before step 2. It takes minutes: do not log out or reboot until the
-   "Sistema a punt" notification (an interrupted box is created again at the next login).
+   which on a home with older dotfiles happened before step 2. It takes minutes: do not log out or
+   reboot until the "Sistema a punt" notification (an interrupted box is created again at the next
+   login).
 4. Check: `sudo bootc status` (the image and its tag), `systemctl --failed`.
 5. A home from another system can hold user configs that win over the image's: move them aside
    (the T480's Artix home had `~/.config/rofi/config.rasi` with its own theme, GTK 3/4

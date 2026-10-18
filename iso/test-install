@@ -1,0 +1,336 @@
+#!/usr/bin/env python3
+"""Unattended test of the bootc installer in a throwaway QEMU VM (KVM, OVMF, NVMe disk, NAT).
+
+Usage: iso/test-install [--checkout] [--host HOST] [ISO]
+
+Boots the installer ISO (default: the newest published one, cached in ~/.cache/iso-test like
+iso/test-vm) with a serial console, drives it and checks what it installed:
+
+1. Whole disk: `/root/install --disk` on an empty disk, then the installed system is booted and
+   checked over SSH: the system running without failed units, the ext4 root with fs-verity, the
+   home partition at /var/home, the swap, hostname, user, `bootc status`, one boot entry, the fsck
+   of the root, systemd-boot-update.
+2. Keeping the home: a file is left in the home, the ISO reinstalls with --root/--esp/--home/--swap
+   on the same disk, and the system must boot with the file still there and one boot entry.
+
+--checkout runs this checkout's bootc/install instead of the ISO's (served to the VM over HTTP),
+to test installer changes before building an ISO; with an ISO without podman the installer then
+installs it (the live system boots with cow_spacesize=2G). Needs KVM, qemu, edk2-ovmf, bsdtar and
+ssh; the VM files (~10 GB) go to ~/.cache/iso-test/install, deleted when the test passes and kept
+for a look when it fails (serial logs: <phase>.log).
+"""
+
+import argparse
+import atexit
+import functools
+import hashlib
+import http.server
+import os
+import re
+import shutil
+import socket
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+import urllib.request
+
+REPO_URL = "http://192.168.2.50"
+OVMF = "/usr/share/edk2/x64"
+CACHE = os.path.join(os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache"), "iso-test")
+WORK = os.path.join(CACHE, "install")
+CHECKOUT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+PASSWORD = "bootc-test"
+SSH_PORT = 2222
+SERIAL = "console=ttyS0,115200"
+# The same failure lines as bootc/test
+FAILURE = re.compile(r"Failed to start|Failed with result|Dependency failed|emergency mode|"
+                     r"Emergency Shell|Kernel panic|FILE CORRUPTED")
+
+
+def log(msg):
+    print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
+
+
+def fail(msg):
+    log(f"FAILED: {msg}")
+    log(f"VM files kept in {WORK}")
+    sys.exit(1)
+
+
+def published_iso():
+    sums = urllib.request.urlopen(f"{REPO_URL}/iso/sha256sums.txt", timeout=10).read().decode()
+    digest, name = sums.split()[:2]
+    path = os.path.join(CACHE, name)
+    if not os.path.exists(path):
+        log(f"Downloading {name}")
+        urllib.request.urlretrieve(f"{REPO_URL}/iso/{name}", path + ".part")
+        os.rename(path + ".part", path)
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    if h.hexdigest() != digest:
+        fail(f"{path}: sha256 does not match sha256sums.txt")
+    return path
+
+
+class VM:
+    """A QEMU VM whose serial console is read into a buffer (and logged to <name>.log)."""
+
+    def __init__(self, name, live=None):
+        self.name = name
+        self.logpath = os.path.join(WORK, f"{name}.log")
+        sock = os.path.join(WORK, "serial.sock")
+        cmd = ["qemu-system-x86_64", "-enable-kvm", "-machine", "q35", "-cpu", "host", "-smp", "4",
+               "-m", "4G",
+               "-drive", f"if=pflash,format=raw,readonly=on,file={OVMF}/OVMF_CODE.4m.fd",
+               "-drive", f"if=pflash,format=raw,file={WORK}/vars.fd",
+               "-drive", f"file={WORK}/disk.qcow2,if=none,id=d0", "-device", "nvme,drive=d0,serial=test",
+               "-nic", f"user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:{SSH_PORT}-:22",
+               "-display", "none",
+               "-chardev", f"socket,id=s0,path={sock},server=on,wait=on,logfile={self.logpath}",
+               "-serial", "chardev:s0"]
+        if live:
+            # The ISO's kernel and initramfs directly, to add the serial console to its options
+            cmd += ["-cdrom", live["iso"], "-kernel", live["kernel"], "-initrd", live["initrd"],
+                    "-append", f"archisobasedir=arch archisosearchuuid={live['uuid']} cow_spacesize=2G {SERIAL}"]
+        self.proc = subprocess.Popen(cmd, stdin=subprocess.DEVNULL)
+        # A failed check exits with the VM still running
+        atexit.register(lambda: self.proc.poll() is None and self.proc.kill())
+        for _ in range(100):
+            try:
+                self.sock = socket.socket(socket.AF_UNIX)
+                self.sock.connect(sock)
+                break
+            except OSError:
+                time.sleep(0.1)
+        else:
+            fail(f"{name}: no serial socket")
+        self.buf = ""
+        self.pos = 0
+        self.lock = threading.Condition()
+        threading.Thread(target=self._read, daemon=True).start()
+        self.n = 0
+
+    def _read(self):
+        while True:
+            data = self.sock.recv(65536)
+            if not data:
+                return
+            with self.lock:
+                self.buf += data.decode(errors="replace")
+                self.lock.notify_all()
+
+    def expect(self, pattern, timeout):
+        rx = re.compile(pattern)
+        end = time.time() + timeout
+        with self.lock:
+            while True:
+                m = rx.search(self.buf, self.pos)
+                if m:
+                    self.pos = m.end()
+                    return m
+                left = end - time.time()
+                if left <= 0 or self.proc.poll() is not None:
+                    tail = "\n".join(self.buf[self.pos:].splitlines()[-30:])
+                    fail(f"{self.name}: no {pattern!r} after {timeout} s; serial console:\n{tail}")
+                self.lock.wait(min(left, 1))
+
+    def send(self, text):
+        self.sock.sendall(text.encode())
+
+    def run(self, cmd, timeout=60):
+        """Run a command in the live system's root shell; its exit status and output."""
+        self.n += 1
+        marker = f"__RC{self.n}"
+        start = self.pos
+        self.send(f"{cmd}; echo {marker}=$?\r")
+        m = self.expect(rf"{marker}=(\d+)", timeout)
+        out = self.buf[start:m.start()].splitlines()[1:-1]
+        return int(m.group(1)), "\n".join(out)
+
+    def wait_exit(self, timeout=180):
+        try:
+            self.proc.wait(timeout)
+        except subprocess.TimeoutExpired:
+            self.proc.kill()
+            fail(f"{self.name}: the VM did not power off")
+
+    def failures(self):
+        return [line for line in self.buf.splitlines() if FAILURE.search(line)]
+
+
+def live_login(vm):
+    vm.expect(r"archiso login:", 300)
+    vm.send("root\r")
+    # The shell's prompt (zsh, with colour codes) before typing: login flushes earlier input
+    vm.expect(r"@archiso[^\n]*#", 60)
+    vm.run("stty cols 400")
+    # The live system's keyring (pacman-init) before a fallback pacman -S podman
+    vm.run("systemctl start pacman-init.service", 300)
+
+
+def install(vm, args, installer_url, options):
+    if installer_url:
+        rc, out = vm.run(f"curl -sfo /root/install {installer_url} && chmod 755 /root/install")
+        if rc:
+            fail(f"could not fetch the checkout's installer: {out}")
+    vm.run(f"printf '%s\\n' {PASSWORD} >/tmp/pw")
+    karg = f"--karg {SERIAL} --karg systemd.journald.forward_to_console=1"
+    log(f"{vm.name}: /root/install {options}")
+    t = time.time()
+    rc, _ = vm.run(f"/root/install {options} --host {args.host} --password-file /tmp/pw --yes {karg} "
+                   ">/tmp/install.log 2>&1", 1800)
+    _, out = vm.run("grep -v '^Copying blob\\|^Writing manifest\\|^Getting image' /tmp/install.log | tail -n 25")
+    print(out, flush=True)
+    if rc:
+        fail(f"{vm.name}: the installer exited with {rc}")
+    log(f"{vm.name}: installed in {time.time() - t:.0f} s")
+
+
+def ssh_run(key, cmd):
+    return subprocess.run(["ssh", "-p", str(SSH_PORT), "-i", key, "-o", "IdentitiesOnly=yes",
+                           "-o", "IdentityAgent=none", "-o", "StrictHostKeyChecking=no",
+                           "-o", "UserKnownHostsFile=/dev/null", "-o", "LogLevel=ERROR",
+                           "-o", "ConnectTimeout=5", "roger@127.0.0.1", cmd],
+                          capture_output=True, text=True, timeout=120, check=False)
+
+
+def ssh(key, cmd, check=True):
+    r = ssh_run(key, cmd)
+    if check and r.returncode:
+        fail(f"ssh {cmd!r}: exit {r.returncode}: {r.stderr.strip()}")
+    return r.stdout.strip()
+
+
+def check_installed(name, key, hostname, extra=()):
+    """Boot the installed disk and run the checks; extra: (what, command, regex) run over SSH."""
+    vm = VM(name)
+    # Over SSH, not the serial console: its getty writes terminal resets into the middle of the
+    # journal's lines, "Startup finished" among them
+    for _ in range(150):
+        if ssh_run(key, "true").returncode == 0:
+            break
+        time.sleep(2)
+    else:
+        fail(f"{name}: no SSH after 300 s")
+    sudo = f"printf '%s\\n' {PASSWORD} | sudo -S -p '' "
+    state = ssh(key, "systemctl is-system-running --wait", check=False)
+    log(f"{name}: {(ssh(key, 'systemd-analyze', check=False) or 'no systemd-analyze').splitlines()[0]}")
+    checks = [
+        ("system running", state, r"^running$"),
+        ("ext4 root", ssh(key, "findmnt -no FSTYPE /sysroot"), r"^ext4$"),
+        ("fs-verity required", ssh(key, "findmnt -no OPTIONS /"), r"verity=require"),
+        ("home partition", ssh(key, "findmnt -no SOURCE /var/home"), r"^/dev/nvme0n1p4$"),
+        ("swap partition", ssh(key, "swapon --show=NAME --noheadings"), r"/dev/nvme0n1p2"),
+        ("hostname", ssh(key, "cat /etc/hostname"), rf"^{re.escape(hostname)}$"),
+        ("user groups", ssh(key, "id -nG"), r"\bwheel\b.*\blibvirt\b|\blibvirt\b.*\bwheel\b"),
+        ("bootc status", ssh(key, sudo + "bootc status --format json"),
+         r'"image":\s*"192\.168\.2\.50:5000/[^"]+:latest"'),
+        ("one boot entry", ssh(key, "ls /boot/loader/entries | wc -l"), r"^1$"),
+        # e2fsck in the initramfs, logged as systemd-fsck (not --grep: sudo logs the command line)
+        ("fsck of the root", ssh(key, sudo + "journalctl -b -t systemd-fsck -o cat", check=False),
+         r"^ROOT: clean"),
+        ("systemd-boot-update", ssh(key, "systemctl show -P Result systemd-boot-update.service"), r"^success$"),
+        *((what, ssh(key, cmd, check=False), want) for what, cmd, want in extra),
+    ]
+    failed = []
+    for what, got, want in checks:
+        ok = re.search(want, got, re.M) is not None
+        if not ok:
+            failed.append((what, got))
+        first = got.splitlines()[0] if got else ""
+        log(f"{name}: {'ok  ' if ok else 'FAIL'} {what}: {first}"[:160])
+    if state != "running":
+        print(ssh(key, "systemctl --failed --no-legend", check=False), flush=True)
+    if vm.failures():
+        print("\n".join(vm.failures()), flush=True)
+        failed.append(("serial console", "failure lines"))
+    return vm, sudo, failed
+
+
+def main():
+    p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    p.add_argument("--checkout", action="store_true", help="run this checkout's bootc/install")
+    p.add_argument("--host", default="t480", help="the image to install (default t480)")
+    p.add_argument("iso", nargs="?", help="the ISO (default: the newest published one)")
+    args = p.parse_args()
+
+    os.makedirs(CACHE, exist_ok=True)
+    iso = os.path.abspath(args.iso) if args.iso else published_iso()
+    shutil.rmtree(WORK, ignore_errors=True)
+    os.makedirs(WORK)
+    names = subprocess.run(["bsdtar", "-tf", iso], capture_output=True, text=True, check=True).stdout.split()
+    uuid = next((n[len("boot/"):-len(".uuid")] for n in names if re.fullmatch(r"boot/[^/]+\.uuid", n)), None)
+    if not uuid:
+        fail(f"{iso}: no boot/<uuid>.uuid")
+    subprocess.run(["bsdtar", "-xf", iso, "-C", WORK, "arch/boot/x86_64/vmlinuz-linux",
+                    "arch/boot/x86_64/initramfs-linux.img"], check=True)
+    live = {"iso": iso, "uuid": uuid, "kernel": f"{WORK}/arch/boot/x86_64/vmlinuz-linux",
+            "initrd": f"{WORK}/arch/boot/x86_64/initramfs-linux.img"}
+    subprocess.run(["qemu-img", "create", "-q", "-f", "qcow2", f"{WORK}/disk.qcow2", "50G"], check=True)
+    shutil.copy(f"{OVMF}/OVMF_VARS.4m.fd", f"{WORK}/vars.fd")
+    key = f"{WORK}/key"
+    subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", key], check=True)
+    pubkey = open(key + ".pub").read().strip()
+
+    installer_url = None
+    if args.checkout:
+        served = tempfile.mkdtemp(dir=WORK)
+        shutil.copy(os.path.join(CHECKOUT, "bootc", "install"), served)
+        handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=served)
+        handler.log_message = lambda *a: None
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        # The VM reaches the host's loopback as 10.0.2.2 (QEMU user networking)
+        installer_url = f"http://10.0.2.2:{server.server_address[1]}/install"
+    log(f"ISO {os.path.basename(iso)}, installer from {'the checkout' if args.checkout else 'the ISO'}, "
+        f"image {args.host}")
+
+    # 1. Whole disk
+    vm = VM("1-live", live)
+    live_login(vm)
+    install(vm, args, installer_url, "--disk /dev/nvme0n1 --root-size 24G --hostname bootc-test")
+    # SSH access for the checks, and no deploy-userland (it would pull the userland image)
+    home = "/mnt/roger"
+    rc, out = vm.run(f"mount /dev/nvme0n1p4 /mnt && install -d -m 700 {home}/.ssh && "
+                     f"echo '{pubkey}' >{home}/.ssh/authorized_keys && "
+                     f"mkdir -p {home}/.config/systemd/user && "
+                     f"ln -s /dev/null {home}/.config/systemd/user/deploy-userland.service && "
+                     f"chown -R 1000:1000 {home} && umount /mnt")
+    if rc:
+        fail(f"could not prepare the home: {out}")
+    vm.send("poweroff\r")
+    vm.wait_exit()
+
+    # A failed check does not stop the test: the reinstall is checked too, and all are reported
+    vm, sudo, failed = check_installed("2-installed", key, "bootc-test")
+    failures = [f"whole disk: {what}" for what, _ in failed]
+    ssh(key, "echo keep-me >~/marker")
+    ssh(key, sudo + "systemctl poweroff", check=False)
+    vm.wait_exit()
+
+    # 2. Keeping the home
+    vm = VM("3-live-reinstall", live)
+    live_login(vm)
+    install(vm, args, installer_url, "--root /dev/nvme0n1p3 --esp /dev/nvme0n1p1 --home /dev/nvme0n1p4 "
+                                     "--swap /dev/nvme0n1p2 --hostname bootc-test2")
+    vm.send("poweroff\r")
+    vm.wait_exit()
+
+    vm, sudo, failed = check_installed("4-reinstalled", key, "bootc-test2",
+                                       [("home kept", "cat ~/marker", r"^keep-me$")])
+    failures += [f"reinstall: {what}" for what, _ in failed]
+    ssh(key, sudo + "systemctl poweroff", check=False)
+    vm.wait_exit()
+    if failures:
+        fail("; ".join(failures))
+
+    shutil.rmtree(WORK)
+    log("PASSED: whole disk install and reinstall keeping the home")
+
+
+if __name__ == "__main__":
+    main()

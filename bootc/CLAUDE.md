@@ -162,8 +162,16 @@
   layer: it was the only unit pulling in `network-online.target` there, and its weekly refresh
   changed `/etc/pacman.d/gnupg`, which bootc's `/etc` merge then keeps as a local change, so the
   keyrings of later images would not reach it. pacman is not used on a bootc host.
-- `bootc/install` (live ISO): podman storage on a tmpfs (overlay cannot sit on the live overlayfs
-  root), `wipefs` + `mount -t btrfs` (udev's cached probe still says ext4), the target at
+- `bootc/install` (live ISO, `/root/install`; whole disk with `--disk`, or keeping a home
+  partition): every question also an option, so that `iso/test-install` can run it unattended.
+  The root is `mkfs.ext4 -O verity` like bootc's own `to-disk` (since 2026-10-18; btrfs before),
+  mounted `noatime` (`rootflags=noatime`). podman's storage cannot sit on the live overlayfs root:
+  on a whole disk it borrows the new home partition (`.bootc-install`, removed afterwards, so the
+  install needs no RAM for the image), keeping a home a tmpfs (~5 GB of RAM); `TMPDIR` goes there
+  too (the live overlay has 256 MiB without `cow_spacesize=`). The ISO brings podman, the base
+  layer's `/etc/containers` and the sigstore key; on another live system the installer installs
+  podman and writes the same config (the key from GitHub). `wipefs` + `mount -t ext4` (udev's
+  cached probe may still say the old filesystem), the target at
   `/target` in the container (`/mnt` links to `var/mnt` in a bootc image), user/hostname/Wi-Fi
   written to `/state/deploy/<id>/etc` and `/state/os/default/var` (`useradd --prefix`), and an
   `efibootmgr` entry (bootc only installs the `EFI/BOOT` fallback, bootc-dev/bootc#2557). It deletes the ESP's
@@ -171,11 +179,12 @@
   partition or gone: they share title and sort key with the new one and the version is a hash, so
   systemd-boot booted a stale one in a rehearsal. It writes `loader.conf` like the arkdep
   installer: bootc only writes `timeout 5` when the file is missing, and `bootctl install` has
-  just created it with every line commented out (no menu, bootc-dev/bootc#2558). Rehearsed in a VM booted from the ISO
-  with a T480-like layout (2026-10-08).
+  just created it with every line commented out (no menu, bootc-dev/bootc#2558). Rehearsed in a VM
+  booted from the ISO with a T480-like layout (2026-10-08); `iso/test-install` since 2026-10-18.
 - `fs-verity ... FILE CORRUPTED!` in the T480's kernel log (kernel 7.2.9-1-cachyos) is a btrfs
-  bug with compressed extents (the root is mounted `compress=zstd:1` by `bootc/install`), not
-  damaged data: the reads succeed on retry. Details, reproducer and options in `docs/todo.md`.
+  bug with compressed extents (the root was mounted `compress=zstd:1` by `bootc/install` until
+  2026-10-18), not damaged data: the reads succeed on retry. Details, reproducer and options in
+  `docs/todo.md`. Gone with the ext4 root; `bootc/test` counts it as a failure again.
 - Boot entry titles: bootc uses `PRETTY_NAME` and `VERSION_ID` of the image's `/usr/lib/os-release`;
   the Containerfile sets them to `Arch Linux (<recipe> <tag>)` and `<tag>.<HHMM>` (`VERSION` and
   `VERSION_ID` build args from `bootc/build`; systemd-boot appends the version to equal titles, two

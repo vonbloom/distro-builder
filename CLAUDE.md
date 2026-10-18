@@ -11,7 +11,8 @@ comments and commit messages are in English (short, sentence-style subjects).
 image/    arkdep image recipes (arkdep-build.d/, frozen since 2026-10-18: fixes only, for the P14s
           until it runs bootc) and build, prune, notify-image
 aur/      AUR packages (packages.list) and own PKGBUILDs (local/) built into the [aur] repository
-iso/      installer ISO: Arch releng profile + arkdep + airootfs/root/install.sh; test-vm
+iso/      installer ISO: Arch releng profile + podman + bootc/install as /root/install (and arkdep +
+          airootfs/root/install-arkdep); test-vm (by hand), test-install (unattended, both modes)
 serve/    nginx quadlet serving /mnt/repo (/<recipe>/, /aur/, /iso/) and the status page at /
           (web/index.html; status-gen writes /run/distro-status, served at /status/;
           build-trigger starts builds: POST /api/build/<unit>, polkit rule distro-trigger.rules);

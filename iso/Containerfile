@@ -4,15 +4,22 @@ FROM localhost/arkdep-builder
 RUN pacman -Syu --noconfirm --needed archiso && \
     pacman -Scc --noconfirm
 
-# Arch's releng profile plus arkdep and the installer
+# Arch's releng profile plus podman and the bootc installer (/root/install), and arkdep with its
+# installer (/root/install-arkdep) until the P14s leaves arkdep
 WORKDIR /build
 RUN cp -r /usr/share/archiso/configs/releng profile && \
     printf '\n[arkane]\nServer = https://repo.arkanelinux.org/$repo/os/$arch\n' >> profile/pacman.conf && \
-    echo arkdep >> profile/packages.x86_64 && \
+    printf '%s\n' arkdep podman >> profile/packages.x86_64 && \
     sed -i 's/^iso_name=.*/iso_name="distro-installer"/' profile/profiledef.sh && \
-    sed -i '/^file_permissions=(/a\  ["/root/install.sh"]="0:0:755"' profile/profiledef.sh
+    sed -i '/^file_permissions=(/a\  ["/root/install"]="0:0:755"\n  ["/root/install-arkdep"]="0:0:755"' profile/profiledef.sh
 COPY airootfs/ profile/airootfs/
-# Public key of the build server: install.sh makes arkdep verify the images with it
+# Public key of the build server: install-arkdep makes arkdep verify the images with it
 COPY --from=keys distro-builder.asc profile/airootfs/root/distro-builder.asc
+# bootc/install, and what it needs to pull the images: the registry's client config of the bootc
+# images' base layer and the sigstore key, so that nothing is downloaded from outside the LAN and
+# the key comes with the ISO's signed checksums
+COPY --from=bootc install profile/airootfs/root/install
+COPY --from=bootc layers/base/overlay/etc/containers/ profile/airootfs/etc/containers/
+COPY --from=keys distro-builder-sigstore.pub profile/airootfs/etc/pki/containers/distro-builder.pub
 
 ENTRYPOINT ["mkarchiso", "-v", "-w", "/tmp/archiso-tmp", "-o", "/output", "/build/profile"]

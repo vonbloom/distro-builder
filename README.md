@@ -23,7 +23,7 @@ image/    arkdep recipes (arkdep-build.d/, frozen: fixes only), build, prune, no
 bootc/    layers/ (what the bootc images hold), Containerfile, apply-layers, build, test, prune, install
 userland/ Containerfile, packages.list and distrobox.ini (the userland distrobox image), build
 aur/      packages.list, local/ (own PKGBUILDs), aur-build.sh, build
-iso/      installer ISO: Containerfile, build, test-vm, airootfs/ (install.sh, arkdep.config)
+iso/      installer ISO: Containerfile, build, test-vm, test-install, airootfs/ (install-arkdep, arkdep.config)
 serve/    web server (nginx quadlet): /mnt/repo and the status page (web/, status-gen, build-trigger);
           container registry (quadlet) for the bootc and userland images
 systemd/  build units and timers, distro-status (page data), distro-trigger (manual builds)

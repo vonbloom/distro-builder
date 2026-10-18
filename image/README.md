@@ -31,7 +31,7 @@ split packages, GPU driver for dracut, TLP and systemd presets) plus:
 
 To add a device, copy a recipe, adjust the hardware parts, schedule it in `ARKDEP_RECIPES` or
 `BOOTC_RECIPES` of `../install` if it should build weekly, and add its model to the detection in
-`iso/airootfs/root/install.sh`. `CLAUDE.md` in this directory documents how `arkdep-build`
+`iso/airootfs/root/install-arkdep`. `CLAUDE.md` in this directory documents how `arkdep-build`
 processes a recipe and the pitfalls already hit.
 
 ## Building

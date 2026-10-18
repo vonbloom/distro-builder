@@ -111,6 +111,17 @@ image's `VERSION_ID` (`initrd-release`); now only when a file it holds changes (
       the T480 with the next image: btrbk is out of the bootc layers (the home backup replaces it);
       wait-online was started on 2026-10-17 by `archlinux-keyring-wkd-sync` (weekly) and timed out
       on the unplugged Ethernet port: `--any`, and the keyring sync masked (`bootc/CLAUDE.md`).
+- [ ] **bootc installer** (2026-10-18): `bootc/install` installs a whole disk (`--disk`: ESP, swap
+      the size of the RAM, ext4 root with fs-verity, ext4 home) or keeps a home partition
+      (`--root/--esp/--home/--swap`, the old way); every question is also an option. The ISO gets
+      it as `/root/install` with podman, the base layer's `/etc/containers` and the sigstore key
+      (no `cow_spacesize=2G`, nothing from GitHub); the arkdep installer stays as
+      `/root/install-arkdep`. The root is ext4 everywhere since then (`bootc/test` too, "FILE
+      CORRUPTED" a failure again) and the initramfs checks it (`fscks` in `20-omit-unused.conf`).
+      `iso/test-install --checkout` with the 2026-10-16 ISO and `t480:latest`: both ways pass
+      (install 54-68 s, boot 8.0 s, the home kept), except the root's fsck, not in that image yet.
+      Next: build the image and the ISO, `iso/test-install` with the new ISO (fsck included), then
+      the T480 (`--root/--esp/--home/--swap`: its btrfs root becomes ext4).
 - [ ] **Fedora bootc trial** (`fedora.md`): the recipes translated on 2026-10-18 (`fedora/`, every
       package found or replaced, resolved with dnf). Next: the Containerfile (base, modules, sway,
       host from the lists, the overlays adapted as `fedora.md` lists), the open decisions there,

@@ -3,8 +3,8 @@
 # Boot test of a bootc image, run by bootc/build before latest names it: what the T480 does with
 # an update, in a throwaway VM. The image is pulled from the registry with the clients' signature
 # policy (a missing or bad signature, or a missing blob, fails here like on the T480), installed on
-# a sparse disk image like bootc/install does (composefs backend, systemd-boot, btrfs with
-# zstd:1) and booted in QEMU with KVM and OVMF, without network. It passes when systemd reports
+# a sparse disk image like bootc/install does (composefs backend, systemd-boot, ext4 with
+# fs-verity) and booted in QEMU with KVM and OVMF, without network. It passes when systemd reports
 # "Startup finished" and the journal, forwarded to the serial console, shows no failed unit, no
 # emergency mode and no kernel panic, within BOOT_TIMEOUT seconds. It does not test hardware
 # drivers (GPU, Wi-Fi) or the desktop.
@@ -22,9 +22,10 @@ BOOT_TIMEOUT=${BOOT_TIMEOUT:-600}
 OVMF_CODE=${OVMF_CODE:-/usr/share/OVMF/OVMF_CODE_4M.fd}
 OVMF_VARS=${OVMF_VARS:-/usr/share/OVMF/OVMF_VARS_4M.fd}
 # Lines of the serial log that fail the test. Units that fail in a VM without the hardware they
-# expect would go to an exception here, never to the recipe. Not "FILE CORRUPTED": the btrfs
-# fs-verity bug with compressed extents logs it for data that reads fine (bootc/CLAUDE.md)
-FAILURE='Failed to start|Failed with result|Dependency failed|emergency mode|Emergency Shell|Kernel panic'
+# expect would go to an exception here, never to the recipe. "FILE CORRUPTED": fs-verity found a
+# file of the composefs repository that does not match its digest (until 2026-10-18 left out: the
+# root was btrfs, whose fs-verity bug with compressed extents logged it for intact data)
+FAILURE='Failed to start|Failed with result|Dependency failed|emergency mode|Emergency Shell|Kernel panic|FILE CORRUPTED'
 
 [[ -e /dev/kvm ]] || { echo "No /dev/kvm: the boot test needs KVM" >&2; exit 1; }
 
@@ -45,7 +46,7 @@ trap cleanup EXIT
 work=$TEST_WORK
 log=${BOOT_LOG:-$work/serial.log}
 
-# The clients' policy (the generic overlay's policy.json: signatures required for the build
+# The clients' policy (the base layer's policy.json: signatures required for the build
 # server's registry, matchRepository) with the public key of this checkout. The signatures are
 # read from the registry as on the clients: /etc/containers/registries.d/50-distro-builder.yaml,
 # installed by ../install
@@ -65,7 +66,7 @@ truncate -s 20G "$work/disk.raw"
 podman run --rm --privileged --pid=host --ipc=host --security-opt label=type:unconfined_t \
 	-v /dev:/dev -v /var/lib/containers:/var/lib/containers -v "$work:/work" \
 	"$IMAGE" bootc install to-disk --via-loopback --generic-image --composefs-backend \
-	--bootloader systemd --filesystem btrfs --karg "rootflags=compress=zstd:1,noatime" \
+	--bootloader systemd --filesystem ext4 --karg rootflags=noatime \
 	--karg console=ttyS0 --karg systemd.journald.forward_to_console=1 /work/disk.raw
 podman rmi "$IMAGE" >/dev/null
 
