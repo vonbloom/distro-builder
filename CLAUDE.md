@@ -91,5 +91,6 @@ kept signature made arkdep reject it ("BAD signature", p14s-2026-10-07). The ins
 
 ## Other machines
 
-- ThinkPad T480 (hardware info, tests of the `t480` recipe): `ssh roger@192.168.2.182`, bootc
-  `t480` image since 2026-10-08.
+- ThinkPad T480 (hardware info, tests of the `t480` recipe): `ssh roger@192.168.2.194`, bootc
+  `t480` image since 2026-10-08, reinstalled on 2026-10-18 (ext4 root, `bootc/install` keeping
+  the home).

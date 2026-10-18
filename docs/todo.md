@@ -104,14 +104,15 @@ image's `VERSION_ID` (`initrd-release`); now only when a file it holds changes (
       previous `latest`, boot it, `bootc switch` to the candidate (the VM then needs a network to
       the registry: QEMU user networking reaches the build server's port 5000), reboot, same
       checks. About twice the test's time.
-- [ ] The T480 is `degraded` (2026-10-18, `t480:2026-10-11`, up 6 days): `btrbk.service` fails
+- [x] The T480 is `degraded` (2026-10-18, `t480:2026-10-11`, up 6 days): `btrbk.service` fails
       (its `snapshot_dir /arkdep/snapshots` does not exist under bootc, bootc/README "Missing
       before real use") and `systemd-networkd-wait-online.service` timed out. Neither is part of
       the boot transaction, so the boot test does not see them. Fixed on 2026-10-18, to check on
       the T480 with the next image: btrbk is out of the bootc layers (the home backup replaces it);
       wait-online was started on 2026-10-17 by `archlinux-keyring-wkd-sync` (weekly) and timed out
       on the unplugged Ethernet port: `--any`, and the keyring sync masked (`bootc/CLAUDE.md`).
-- [ ] **bootc installer** (2026-10-18): `bootc/install` installs a whole disk (`--disk`: ESP, swap
+      Checked after the reinstall (`t480:2026-10-18`): `running`.
+- [x] **bootc installer** (2026-10-18): `bootc/install` installs a whole disk (`--disk`: ESP, swap
       the size of the RAM, ext4 root with fs-verity, ext4 home) or keeps a home partition
       (`--root/--esp/--home/--swap`, the old way); every question is also an option. The ISO gets
       it as `/root/install` with podman, the base layer's registry config and the sigstore key
@@ -125,7 +126,13 @@ image's `VERSION_ID` (`initrd-release`); now only when a file it holds changes (
       ships it; `iso/CLAUDE.md`), now `distro-builder-policy.json`. `iso/test-install` with the
       `distro-installer-2026.10.18` ISO and its own installer passed too (install 62 / 49 s, boot
       8.2 / 7.7 s). The T480's first try failed: `bootc install` filled the live overlay's `/var/tmp`
-      (256 MiB; the test had booted with `cow_spacesize=2G`), now bound to the storage.
+      (256 MiB; the test had booted with `cow_spacesize=2G`), now bound to the storage. The T480
+      was then reinstalled keeping its home (the ISO's installer, `/var/tmp` bound by hand):
+      `running` with no failed unit, ext4 root with `verity=require` and `ROOT: clean` from the
+      initramfs, swap and `resume=`, Wi-Fi from the live system, the userland box kept. Boot 28.9 s
+      (firmware 7.0, loader 12.1 with the 5 s menu, kernel 1.3, initrd 2.9, userspace 5.5; 35.6 s
+      before). Its address changed from .182 to .194: networkd's DHCP client identifier is a DUID
+      from the machine-id, new with every install.
 - [ ] **Fedora bootc trial** (`fedora.md`): the recipes translated on 2026-10-18 (`fedora/`, every
       package found or replaced, resolved with dnf). Next: the Containerfile (base, modules, sway,
       host from the lists, the overlays adapted as `fedora.md` lists), the open decisions there,

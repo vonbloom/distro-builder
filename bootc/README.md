@@ -229,7 +229,8 @@ the installer ISO (`cow_spacesize=2G`), `bootc/install` downloaded from GitHub:
   waybar indicator. btrbk is not in the bootc images (2026-10-18): its `snapshot_dir
   /arkdep/snapshots` does not exist there and the T480's home is ext4; a backup of the home to the
   server replaces its local snapshots of `~/.gnupg` (`docs/todo.md`).
-- btrfs is "expected to work but not tested" upstream with the composefs backend; it worked here.
-  No boot counting / automatic rollback (arkdep has none either).
+- The root is ext4 with fs-verity since 2026-10-18 (the T480 reinstalled), a filesystem upstream's
+  CI covers; btrfs, "expected to work but not tested", had worked here but hit a kernel fs-verity
+  bug with compressed extents. No boot counting / automatic rollback yet (`docs/todo.md`).
 - No in-place migration from arkdep: `install` reinstalls the root partition and keeps a separate
   `/home` partition (the T480 layout); the P14s has `/home` inside its btrfs root.
