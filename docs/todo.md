@@ -107,8 +107,10 @@ image's `VERSION_ID` (`initrd-release`); now only when a file it holds changes (
 - [ ] The T480 is `degraded` (2026-10-18, `t480:2026-10-11`, up 6 days): `btrbk.service` fails
       (its `snapshot_dir /arkdep/snapshots` does not exist under bootc, bootc/README "Missing
       before real use") and `systemd-networkd-wait-online.service` timed out. Neither is part of
-      the boot transaction, so the boot test does not see them. btrbk is out of the bootc layers
-      (2026-10-18; the home backup replaces it); wait-online still to diagnose on the T480.
+      the boot transaction, so the boot test does not see them. Fixed on 2026-10-18, to check on
+      the T480 with the next image: btrbk is out of the bootc layers (the home backup replaces it);
+      wait-online was started on 2026-10-17 by `archlinux-keyring-wkd-sync` (weekly) and timed out
+      on the unplugged Ethernet port: `--any`, and the keyring sync masked (`bootc/CLAUDE.md`).
 - [ ] **Fedora bootc trial** (`fedora.md`): the recipes translated on 2026-10-18 (`fedora/`, every
       package found or replaced, resolved with dnf). Next: the Containerfile (base, modules, sway,
       host from the lists, the overlays adapted as `fedora.md` lists), the open decisions there,

@@ -154,6 +154,14 @@
   `bootc_composefs/boot.rs`): the remount changes the superblock, but the system's mount keeps its
   own read-only flag. Without it `bootctl update` fails as soon as the image has a newer
   systemd-boot than the ESP (the boot test cannot see it: it installs the image's own).
+- `network-online.target`: `systemd-networkd-wait-online` runs with `--any` (drop-in in the base
+  layer, and in the arkdep recipes' generic overlay): by default it waits for every managed link,
+  and an Ethernet port without a cable (or `wg0`) stays "configuring", a 2 min timeout and a failed
+  unit (the T480's `degraded`, 2026-10-17). `archlinux-keyring-wkd-sync.timer` (enabled by
+  archlinux-keyring with a link in `/usr/lib`, out of reach of the presets) is masked in the base
+  layer: it was the only unit pulling in `network-online.target` there, and its weekly refresh
+  changed `/etc/pacman.d/gnupg`, which bootc's `/etc` merge then keeps as a local change, so the
+  keyrings of later images would not reach it. pacman is not used on a bootc host.
 - `bootc/install` (live ISO): podman storage on a tmpfs (overlay cannot sit on the live overlayfs
   root), `wipefs` + `mount -t btrfs` (udev's cached probe still says ext4), the target at
   `/target` in the container (`/mnt` links to `var/mnt` in a bootc image), user/hostname/Wi-Fi

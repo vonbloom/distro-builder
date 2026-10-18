@@ -93,6 +93,10 @@ How `arkdep-build` processes a recipe (relevant constraints):
   (`bootctl --graceful update`; neither arkdep nor bootc updates it after the install), and
   `fstrim.timer` trims weekly what is mounted without `discard` (ext4 `/home` on the T480; btrfs
   with `discard=async` needs it less, harmless).
+- **wait-online**: `systemd-networkd-wait-online.service.d/any.conf` (`--any`, 2026-10-18): the
+  default waits for every link, and the dock's unplugged port (`enp5s0`) and `wg0` stay
+  "configuring" (2 min timeout, a failed unit; seen on the T480). Nothing at boot wants
+  `network-online.target`; a backup unit will.
 - **Journal**: `/var/log/journal` is per deployment; capped with `SystemMaxUse=1G` in
   `depends/generic/.../journald.conf.d/50-size.conf` (default would be 4 GiB each).
 - **Menus**: every system menu is a rofi script in `depends/sway/.../usr/local/bin` (e.g.
