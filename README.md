@@ -19,8 +19,8 @@ pitfalls already hit; [`serve/README.md`](serve/README.md) covers the web server
 and the registry.
 
 ```
-image/    recipes (arkdep-build.d/), build, prune, notify-image
-bootc/    Containerfile and build-recipe.sh (the recipes as bootc images), build, prune, overlay/
+image/    arkdep recipes (arkdep-build.d/, frozen: fixes only), build, prune, notify-image
+bootc/    layers/ (what the bootc images hold), Containerfile, apply-layers, build, test, prune, install
 userland/ Containerfile, packages.list and distrobox.ini (the userland distrobox image), build
 aur/      packages.list, local/ (own PKGBUILDs), aur-build.sh, build
 iso/      installer ISO: Containerfile, build, test-vm, airootfs/ (install.sh, arkdep.config)
@@ -115,7 +115,8 @@ Clients get the public key from this repository, not from the server they verify
 - the `[aur]` clients: `pacman-key --add` + `--lsign-key` (see [aur/README.md](aur/README.md));
 - the registry's clients (bootc systems, and podman on every laptop for the userland image):
   `/etc/pki/containers/distro-builder.pub` in the image, required for `192.168.2.50:5000` by
-  `/etc/containers/policy.json` (the generic overlay of `image/arkdep-build.d/depends`; bootc
+  `/etc/containers/policy.json` (the base layer `bootc/layers/base`, and the generic overlay of
+  `image/arkdep-build.d/depends` for arkdep; bootc
   refuses unsigned updates, podman unsigned pulls); `bootc/install` sets the same up in the live
   system before pulling the image.
 

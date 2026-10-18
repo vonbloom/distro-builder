@@ -1,0 +1,30 @@
+foot
+mesa
+pipewire
+pipewire-pulse
+# PipeWire asks RTKit (over D-Bus, activated on demand) for realtime scheduling of its audio
+# threads; without it they ran as normal tasks and audio dropped out under load (2026-10-09)
+rtkit
+wireplumber
+sway
+swaybg
+swayidle
+swaylock
+waybar
+rofi
+wlsunset
+wl-clipboard
+mako
+ttf-jetbrains-mono-nerd
+xdg-desktop-portal-gtk
+xdg-desktop-portal-wlr
+xorg-xwayland
+grim
+slurp
+darkman
+adw-gtk-theme
+# Secret Service for Brave and VS Code (userland box), unlocked at login (pam.d/login)
+gnome-keyring
+# notify-send (foot, deploy-userland of the workstation module), shown by mako
+libnotify
+xdg-user-dirs

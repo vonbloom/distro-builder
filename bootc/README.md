@@ -1,25 +1,30 @@
 # bootc images (`bootc/`)
 
-Trial (since 2026-10-07) of [bootc](https://github.com/bootc-dev/bootc) as a replacement for
-arkdep: the same recipes (`image/arkdep-build.d/<recipe>`) built as bootc container images, based
-on the Arch image of [bootcrew/mono](https://github.com/bootcrew/mono). While both are compared the
-T480 runs bootc (`t480`, built weekly) and the P14s stays on arkdep (`p14s` bootc image by hand);
-`../install` sets the schedules. Implementation notes and pitfalls: `CLAUDE.md` in this directory.
+[bootc](https://github.com/bootc-dev/bootc) images of the hosts, replacing arkdep (trial since
+2026-10-07), based on the Arch image of [bootcrew/mono](https://github.com/bootcrew/mono). The T480
+runs bootc (`t480`, built weekly) and the P14s stays on arkdep until it moves (`p14s` bootc image by
+hand); `../install` sets the schedules. Implementation notes and pitfalls: `CLAUDE.md` in this
+directory.
 
-- `Containerfile`: CachyOS v3 repositories and `linux-cachyos` like the recipe; `bootc` from the
-  `[aur]` repository (`aur/local/bootc`: pinned version, no SELinux); composefs backend.
-- `build-recipe.sh`: applies the arkdep recipe in arkdep-build's order (package lists, overlays,
-  presets, locale-gen), without arkdep, `arkane-keyring` and `nss-altfiles`.
-- `overlay/`: files only bootc systems need (the registry, AppArmor's `@{HOMEDIRS}`, the masked
-  `systemd-boot-random-seed.service`, `bootc-update.timer`: stages new images, see below).
+- `layers/`: what goes into the images, one directory per layer (`docs/layers.md`): `base` (boot,
+  administration, the registry and bootc updates), `modules/laptop` and `modules/workstation`
+  (virtualization, the userland box), `desktop/sway`, and `host/<host>` (hardware, hostname).
+  Each has a `packages.list` and an `overlay/` (files copied to `/`); a host's `layers.list` names
+  the layers of its image in order. Taken from the arkdep recipes on 2026-10-18 (since then
+  `image/arkdep-build.d` is frozen: fixes only, for the P14s).
+- `Containerfile`: CachyOS v3 repositories (`layers/base/pacman.conf`) and `linux-cachyos`;
+  `bootc` from the `[aur]` repository (`aur/local/bootc`: pinned version, no SELinux); composefs
+  backend.
+- `apply-layers`: installs each layer's packages and copies its overlay, then presets and
+  locale-gen.
 - `build`, `prune`: build, rechunk and push; retention in the registry.
 - `install`: installs an image from the installer ISO on existing partitions, keeping `/home` (see
   below).
 
 ## Building and updates
 
-- `bootc/build <recipe>` builds `bootc/Containerfile` (which applies the arkdep recipe with
-  `build-recipe.sh` and installs `bootc` from `[aur]`), splits the image into per-package layers
+- `bootc/build <host>` builds `bootc/Containerfile` (which installs `bootc` from `[aur]` and
+  applies the host's layers with `apply-layers`), splits the image into per-package layers
   with [chunkah](https://github.com/coreos/chunkah) and pushes it to the registry with skopeo
   (the compressed layers as chunkah writes them) as `<recipe>:candidate`. An image with more than
   20 % fewer packages than the previous one is not pushed (a stage of the recipe that installed
@@ -36,8 +41,8 @@ T480 runs bootc (`t480`, built weekly) and the P14s stays on arkdep (`p14s` boot
 - Each image is signed with the build server's sigstore key when pushed; the signature lives in
   the registry next to it (`sha256-<digest>.sig`), and the bootc systems refuse an unsigned image
   of `192.168.2.50:5000` (`/etc/containers/policy.json` and `registries.d/50-distro-builder.yaml`
-  from the generic overlay of `image/arkdep-build.d/depends`, shared with the arkdep images; public
-  key `keys/distro-builder-sigstore.pub` copied to `/etc/pki/containers/distro-builder.pub`).
+  of the base layer, the same files as the arkdep recipes' generic overlay; public key
+  `keys/distro-builder-sigstore.pub` copied to `/etc/pki/containers/distro-builder.pub`).
   The status page marks each image "signada" or "sense signar". A build without the signing key
   fails instead of pushing an image the clients would refuse.
 - `bootc/prune <recipe>` keeps the newest 4 dated images (`KEEP`), with their signatures, deletes
@@ -187,7 +192,7 @@ the installer ISO (`cow_spacesize=2G`), `bootc/install` downloaded from GitHub:
 - podman bind mounts `/etc/resolv.conf` and `/etc/hostname` during builds: `--no-hostname`, and the
   overlay's `resolv.conf` link becomes a tmpfiles.d entry.
 - `/usr/local` is a link to `/var/usrlocal`, which bootc never updates after the install: the
-  recipe's scripts move to `/usr/bin`.
+  scripts live in `/usr/bin` (the arkdep recipes have them in `/usr/local/bin`).
 - Overlays extracted with `tar -xp` kept the checkout's UID 1000 and 775 modes, also on existing
   directories (`/usr`, `/etc/systemd`, `/etc/sudoers.d`): sudo ignored `sudoers.d` and iwd failed
   on D-Bus (the first registry image, `p14s:2026-10-07`). They are now extracted as root like
@@ -212,8 +217,10 @@ the installer ISO (`cow_spacesize=2G`), `bootc/install` downloaded from GitHub:
 - Done (2026-10-08): image signing, sigstore (see the main README, Signatures).
 - Machine-specific kernel arguments: `install` passes the `/home` mount, the swap partition and
   `resume=` with `--karg`, and they survive `bootc upgrade` (rehearsal). Hibernation: not tested.
-- btrbk (`snapshot_dir /arkdep/snapshots`), `arkdep-diff`. Done: `notify-image`, the status page,
-  updates (`bootc-update.timer`) and the waybar indicator.
+- `arkdep-diff`. Done: `notify-image`, the status page, updates (`bootc-update.timer`) and the
+  waybar indicator. btrbk is not in the bootc images (2026-10-18): its `snapshot_dir
+  /arkdep/snapshots` does not exist there and the T480's home is ext4; a backup of the home to the
+  server replaces its local snapshots of `~/.gnupg` (`docs/todo.md`).
 - btrfs is "expected to work but not tested" upstream with the composefs backend; it worked here.
   No boot counting / automatic rollback (arkdep has none either).
 - No in-place migration from arkdep: `install` reinstalls the root partition and keeps a separate

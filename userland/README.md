@@ -46,7 +46,8 @@ already runs that image, asks before replacing a running box (the apps opened fr
 `--yes` skips the question), and `--dry-run` only shows what it would do.
 `userland-update 192.168.2.50:5000/userland:<date>` goes back to an older image (the registry keeps
 four). On a new machine `deploy-userland` runs it at the first login. The host images trust the
-registry and require its signature (the generic overlay of `image/arkdep-build.d/depends`).
+registry and require its signature (the base layer `bootc/layers/base`, the generic overlay of
+`image/arkdep-build.d/depends` on arkdep).
 
 `playground` is left alone by an update, so the experiments in it stay (it says when it runs an
 older image than userland). `userland-update --playground` moves it to the image userland runs and

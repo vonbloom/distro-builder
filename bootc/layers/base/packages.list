@@ -1,0 +1,40 @@
+# What every bootc image needs to boot and be administered. linux-cachyos and dracut must be in
+# the same transaction: dracut provides the kernel's initramfs dependency (mkinitcpio otherwise)
+base
+linux-cachyos
+dracut
+cpio
+iptables-nft
+btrfs-progs
+zlib-ng-compat
+dbus-broker-units
+apparmor
+zram-generator
+openssh
+sudo
+podman
+wireguard-tools
+
+# Administration
+arch-install-scripts
+binutils
+compsize
+diffutils
+dosfstools
+efibootmgr
+exfatprogs
+fastfetch
+fwupd
+fzf
+git
+man-db
+nvme-cli
+pv
+smartmontools
+tmux
+tree
+udisks2
+vi
+wget
+zsh
+zsh-completions

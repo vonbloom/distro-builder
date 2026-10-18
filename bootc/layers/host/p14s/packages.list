@@ -1,0 +1,6 @@
+amd-ucode
+linux-firmware-amdgpu
+linux-firmware-intel
+linux-firmware-realtek
+# Vulkan for the Renoir iGPU (mesa itself is in the sway layer)
+vulkan-radeon

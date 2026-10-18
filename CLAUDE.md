@@ -8,7 +8,8 @@ comments and commit messages are in English (short, sentence-style subjects).
 ## Layout
 
 ```
-image/    arkdep image recipes (arkdep-build.d/) and build, prune, notify-image
+image/    arkdep image recipes (arkdep-build.d/, frozen since 2026-10-18: fixes only, for the P14s
+          until it runs bootc) and build, prune, notify-image
 aur/      AUR packages (packages.list) and own PKGBUILDs (local/) built into the [aur] repository
 iso/      installer ISO: Arch releng profile + arkdep + airootfs/root/install.sh; test-vm
 serve/    nginx quadlet serving /mnt/repo (/<recipe>/, /aur/, /iso/) and the status page at /
@@ -28,11 +29,12 @@ docs/     todo.md: pending improvements (boot time, storage, memory); layers.md:
           fedora.md: trial of the host images on fedora-bootc, translation of the recipes
 fedora/   package lists of the Fedora trial per layer (base, modules/, desktop/, host/):
           packages.list, remove.list (docs/fedora.md)
-ci/       check: static checks (shellcheck, Python syntax, stray files, exec bits, recipe structure),
-          run by GitHub Actions on every push (.github/workflows/check.yml)
-bootc/    the recipes as bootc images (trial, the T480): Containerfile, build-recipe.sh,
+ci/       check: static checks (shellcheck, Python syntax, stray files, exec bits, recipe structure,
+          bootc layers), run by GitHub Actions on every push (.github/workflows/check.yml)
+bootc/    the bootc host images (the T480): layers/ (base, modules/, desktop/, host/<host>: a
+          packages.list and an overlay/ each, a host's layers.list), Containerfile, apply-layers,
           build (chunkah + push to the registry as candidate, boot test, then latest), test (the
-          boot test in a VM), prune, install (from the ISO), overlay/; design and VM results in
+          boot test in a VM), prune, install (from the ISO); design and VM results in
           bootc/README.md
 userland/ the userland distrobox image: Containerfile, packages.list, distrobox.ini (the box
           manifest, carried by the image), dbus-1/, build; prune is bootc/prune

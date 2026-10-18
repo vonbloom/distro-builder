@@ -1,5 +1,8 @@
 # arkdep images (`image/`)
 
+Frozen since 2026-10-18 (fixes only, for the P14s until it moves to bootc): the bootc images are
+built from `bootc/layers`.
+
 arkdep images of the host OS. An image is a `.tar.zst` with btrfs send streams of the read-only
 root filesystem and of `/etc` and `/var`, plus an update script. Laptops pull them with
 `arkdep deploy` and boot the new deployment; the previous one stays as a fallback.

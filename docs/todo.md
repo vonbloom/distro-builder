@@ -107,7 +107,8 @@ image's `VERSION_ID` (`initrd-release`); now only when a file it holds changes (
 - [ ] The T480 is `degraded` (2026-10-18, `t480:2026-10-11`, up 6 days): `btrbk.service` fails
       (its `snapshot_dir /arkdep/snapshots` does not exist under bootc, bootc/README "Missing
       before real use") and `systemd-networkd-wait-online.service` timed out. Neither is part of
-      the boot transaction, so the boot test does not see them.
+      the boot transaction, so the boot test does not see them. btrbk is out of the bootc layers
+      (2026-10-18; the home backup replaces it); wait-online still to diagnose on the T480.
 - [ ] **Fedora bootc trial** (`fedora.md`): the recipes translated on 2026-10-18 (`fedora/`, every
       package found or replaced, resolved with dnf). Next: the Containerfile (base, modules, sway,
       host from the lists, the overlays adapted as `fedora.md` lists), the open decisions there,
@@ -185,13 +186,13 @@ image's `VERSION_ID` (`initrd-release`); now only when a file it holds changes (
       Prospect with a third kind of machine (yamaha: x86-64-v2, Cinnamon, appliance services),
       the split of `depends/generic` into base and modules, and a phase 1 in today's recipe
       format: `layers.md` (2026-10-09).
-      Once bootc is the default, the arkdep conventions of `image/arkdep-build.d` (`depends.list`,
-      `bootstrap.list`/`package.list`, `post_bootstrap`/`post_install` overlays, `extensions/`,
-      `build-recipe.sh` replaying them) go: each layer gets its own manifest (packages and overlay
-      next to its Containerfile, like `userland/`). What lives in `depends/generic` for both builds
-      today moves to the base layer, e.g. the registry's client config (`etc/containers`, moved
-      there from `bootc/overlay` on 2026-10-09) and its key (`post_install.sh` for arkdep,
-      `build-recipe.sh` for bootc: one `install` in the base layer).
+      Done in part (2026-10-18): the bootc images no longer replay the arkdep recipes
+      (`build-recipe.sh`): `bootc/layers` has `base`, `modules/laptop`, `modules/workstation`,
+      `desktop/sway` and `host/{t480,p14s}` (a `packages.list` and an `overlay/` each, a host's
+      `layers.list`), applied in order by `bootc/apply-layers` in the one Containerfile, and
+      `image/arkdep-build.d` is frozen for the P14s. Still to do: an image per layer in the
+      registry (the base built once for every host, a host build reusing it), the audio modules and
+      yamaha (`layers.md`).
       - The userland image stays apart from these layers (decided 2026-10-09). The host image takes
         what needs root, hardware, the boot or the session (drivers, network, virtualization,
         the compositor, portals, the keyring) plus what the host's own shells and scripts use;
@@ -352,7 +353,7 @@ Upstream issues with a local workaround, to drop when they are fixed in a bootc 
         parsed by bootc, so the #2558 fix may change shape. `bootctl install` (262) cannot take
         `loader.conf` from `--root` (it only writes its commented template when the file is
         missing), so a file in the image needs bootc to copy it to the ESP. If bootc gets that, our
-        `loader.conf` moves to `bootc/overlay` (the Containerfile is already our own Arch base, the
+        `loader.conf` moves to the base layer (the Containerfile is already our own Arch base, the
         counterpart of fedora-bootc's config); if the timeout only moves to fedora-bootc, nothing
         changes for us.
       - Tested 2026-10-15 (PR head 5685e48, a `test/t480` image with it, `bootc/install` from the

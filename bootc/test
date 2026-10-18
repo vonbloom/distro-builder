@@ -52,7 +52,7 @@ log=${BOOT_LOG:-$work/serial.log}
 pull=(--tls-verify=false)
 if [[ ${ALLOW_UNSIGNED:-0} != 1 ]]; then
 	sed "s|/etc/pki/containers/distro-builder.pub|$PWD/keys/distro-builder-sigstore.pub|" \
-		image/arkdep-build.d/depends/generic/overlay/post_install/etc/containers/policy.json \
+		bootc/layers/base/overlay/etc/containers/policy.json \
 		>"$work/policy.json"
 	pull+=(--signature-policy "$work/policy.json")
 fi

@@ -1,0 +1,29 @@
+# Units every bootc image enables. The other layers' presets (80-<layer>.preset) sort before this
+# file, which ends with "disable *": first match wins, so whatever no layer lists stays disabled
+# (also what systemd's own 90-systemd.preset would enable)
+
+# Services
+enable apparmor.service
+enable systemd-networkd.service
+enable systemd-resolved.service
+enable getty@.service
+enable systemd-logind.service
+enable systemd-timesyncd.service
+enable remote-fs.target
+enable nftables.service
+# Copies a newer systemd-boot from the image to the ESP at boot (bootctl update): nothing else does
+enable systemd-boot-update.service
+
+# Sockets
+enable systemd-userdbd.socket
+enable sshd.socket
+
+# Timers
+# Stages the newest image of the booted tag (bootc-update)
+enable bootc-update.timer
+# Monthly scrub of the whole btrfs filesystem (instance "-" is /, any mount point scrubs all of it)
+enable btrfs-scrub@.timer -
+# Weekly TRIM: ext4 (the T480's /home) is mounted without discard
+enable fstrim.timer
+
+disable *

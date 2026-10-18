@@ -1,0 +1,5 @@
+# The layers of this image, applied in this order, then this directory itself (bootc/apply-layers)
+base
+modules/laptop
+modules/workstation
+desktop/sway

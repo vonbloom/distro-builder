@@ -18,8 +18,8 @@
   `RestartPreventExitStatus=99`, and `lib/retry-once` exits 99 when `NRestarts` is already 1, so
   `notify-failure@` reports only the retry's failure. `NRestarts` is reset by every start (timer,
   status page, by hand). The retry runs the `git pull` again.
-- `bootc/test <image>` (since 2026-10-18): `podman pull --signature-policy` with the generic
-  overlay's `policy.json` pointed at `keys/distro-builder-sigstore.pub` (what the clients check: a
+- `bootc/test <image>` (since 2026-10-18): `podman pull --signature-policy` with the base
+  layer's `policy.json` pointed at `keys/distro-builder-sigstore.pub` (what the clients check: a
   missing signature or blob fails here), `bootc install to-disk --via-loopback --generic-image`
   (no firmware boot entry on the build server) onto a sparse 20 GB raw file in `/var/tmp`, with
   the T480's `rootflags=compress=zstd:1,noatime` and `console=ttyS0
@@ -69,12 +69,39 @@
 - `push_image` labels the image `org.opencontainers.image.revision` with the checkout's commit
   (`git describe --always --dirty --abbrev=40`; `safe.directory` because root runs git in admin's
   checkout; `unknown` in a copy without `.git`): which change built an image that misbehaves.
-- `bootc/overlay/` holds files only bootc images need: `@{HOMEDIRS}+=/var/home/` for AppArmor
-  (`/home` links to `/var/home`), `bootc-update`, the random seed unit. The registry's client
-  config (`/etc/containers`: insecure in `registries.conf.d`, `registries.d`, `policy.json`) lives
-  in the generic overlay of `image/arkdep-build.d/depends` since 2026-10-09: the arkdep images
-  pull the userland image from the registry too. The key: `build-recipe.sh` here,
-  `common/extensions/post_install.sh` for arkdep (`image/build` mounts `keys/`).
+- `layers/` (since 2026-10-18; until then `build-recipe.sh` replayed the arkdep recipes and undid
+  what bootc does not want): `layers/host/<host>/layers.list` names the layers in order (it must
+  start with `base`; `ci/check` checks the names), and `apply-layers` applies each one, then the
+  host directory: `pacman -S --needed` of its `packages.list` (one transaction per layer:
+  `linux-cachyos` and `dracut` must stay in the same one, dracut provides the kernel's initramfs
+  dependency), then its `overlay/` (below). Then the sigstore key from `keys/`, `preset-all` (system
+  and `--global`), `locale-gen`, `pacman -Scc`. The build argument and the unit instance keep the
+  name `RECIPE` (`build-bootc@<host>`, the registry repository). A file that a later layer's
+  package also ships must not be in an earlier layer's overlay (pacman: "exists in filesystem").
+  Copied from the arkdep recipes with the bootc adjustments made in the files: the scripts in
+  `/usr/bin` (not `/usr/local/bin`, a link to `/var` under bootc) and the references to them,
+  `nsswitch.conf` without `altfiles`, the overlay's `resolv.conf` link as
+  `etc/tmpfiles.d/systemd-resolve.conf`, the kernel arguments of the arkdep boot template as
+  `usr/lib/bootc/kargs.d/10-base.toml`, no btrbk. Checked on 2026-10-18 against `build-recipe.sh`'s
+  t480 image of the same commit, both built back to back (rootless podman on the P14s): the same
+  packages and versions (btrbk aside), the same files, modes, owners and enabled units, the same
+  initramfs byte for byte. Contents differed only in two comments of `sudoers` and `pam_env.conf`
+  (`build-recipe.sh`'s `/usr/local/bin` sed ran over package files too), in files generated anew by
+  every build (`/etc/nvme/hostid`, `hostnqn`, `java-cacerts.jks`, the `-` backups of the account
+  files) and in dynamic system IDs: `systemd-sysusers` numbers new users and groups in transaction
+  order (one transaction per layer now), so `libvirt`, `qemu`, `dnsmasq`, `fwupd`, `git`, `seat`...
+  got other numbers. No image file is owned by them, and an installed system keeps its own
+  `/etc/passwd` and `/etc/group` (changed locally by the install, so bootc's merge keeps the local
+  copy and sysusers adds new accounts at boot): only a new install sees the new numbers.
+- Presets: first match wins; `base/.../81-base.preset` ends with `disable *` (also what systemd's
+  `90-systemd.preset` would enable), every other layer has its own `80-<layer>.preset`, which
+  sorts before it. Units bootc systems need in the base layer: `@{HOMEDIRS}+=/var/home/` for
+  AppArmor (`/home` links to `/var/home`), `bootc-update`, the masked random seed unit, the
+  `systemd-boot-update.service` drop-in (below). The registry's client config (`/etc/containers`:
+  insecure in `registries.conf.d`, `registries.d`, `policy.json`) is in the base layer and, the same
+  files, in the arkdep recipes' generic overlay (the arkdep images pull the userland image from the
+  registry too). The key: `apply-layers` here, `common/extensions/post_install.sh` for arkdep
+  (`image/build` mounts `keys/`).
 - Signing (sigstore, since 2026-10-08): `bootc/build` pushes the candidate with
   `--sign-by-sigstore-private-key /etc/distro-builder/sigstore/distro-builder.private
   --sign-passphrase-file .../passphrase` (root only, restored from the homelab vault); the dated
@@ -84,7 +111,7 @@
   word. The push goes to `192.168.2.50:5000`, not localhost: the
   signature names the reference it was pushed as, and the clients' policy uses `matchRepository`.
   skopeo (like podman) only writes sigstore attachments with `use-sigstore-attachments` in
-  registries.d: the server gets the generic overlay's `registries.d/50-distro-builder.yaml` from
+  registries.d: the server gets the base layer's `registries.d/50-distro-builder.yaml` from
   `install`, and `lib/push-image.sh` mounts `/etc/containers/registries.d` into the skopeo
   container. The clients'
   `policy.json` keeps Arch's default (accept anything) for every other registry, so distrobox and dev
@@ -99,8 +126,8 @@
   it, and then prune deletes that image's signature and the collection the image. `prune --dry-run` lists it all. Check a policy by hand with skopeo in a container:
   `skopeo copy --policy P --registries.d D --src-tls-verify=false docker://192.168.2.50:5000/t480:latest dir:/tmp/x`
   (an unsigned image: "A signature was required, but no signature exists").
-- Updates on bootc systems: `bootc-update.timer` (`bootc/overlay`, enabled by `80-bootc.preset` in
-  `build-recipe.sh`'s `preset-all`) runs `bootc-update`:
+- Updates on bootc systems: `bootc-update.timer` (base layer, enabled by `81-base.preset`) runs
+  `bootc-update`:
   `bootc upgrade` (stage only) and `/run/bootc-update/staged` (recipe, version, package list URL)
   for the waybar indicator. The version is `org.opencontainers.image.version` (the date tag), set
   by `bootc/build` as a label (bootc's ostree backend) and a manifest annotation (the composefs
@@ -108,18 +135,25 @@
   itself and only runs on ostree boots (`/run/ostree-booted`).
 - `arkdep-update-status` (sway layer) serves both: arkdep when `/arkdep/config` exists, bootc
   otherwise.
-- `build-recipe.sh` copies the overlays (the recipe's, then `bootc/overlay`) like arkdep-build's
-  `cp -r`: `tar --no-same-owner --no-same-permissions` into a staging directory, then `cp -r` to `/`
+- `apply-layers` copies the overlays like arkdep-build's `cp -r`: `tar --no-same-owner --no-same-permissions` into a staging directory, then `cp -r` to `/`
   (existing files and directories keep owner and mode). Plain `tar -xp` kept the checkout's UID
   1000 and 775 modes, also on existing dirs (`/usr`, `/usr/lib`, `/etc/systemd`): sudo ignored
   `sudoers.d` and iwd failed on D-Bus. `COPY` gave existing dirs the checkout's 775 (server umask
   0002), and tar replaced existing files with the overlay's mode (libvirt's 600 `default.xml` became
   644). The Containerfile fails the build when `pacman -Qkk` reports an owner or mode mismatch
   (expected: `/proc`, `/sys`, `utempter`) or a file belongs to UID 1000; at runtime `/var/...`
-  entries also differ (created by tmpfiles). The overlays' `resolv.conf` link becomes
-  `/etc/tmpfiles.d/systemd-resolve.conf`, replacing systemd's file of that name.
+  entries also differ (created by tmpfiles). `/etc/resolv.conf` is bind mounted during the build:
+  the base layer links it with `/etc/tmpfiles.d/systemd-resolve.conf`, which replaces systemd's
+  file of that name (its only line is the stub-resolv.conf link; two entries for the path logged
+  "Duplicate line" at every boot).
 - bootc mounts the ESP read-only at `/boot` (`systemd.mount-extra=...:/boot:auto:ro`), so
-  `systemd-boot-random-seed.service` is masked in `bootc/overlay` (systemd-boot refreshes the seed).
+  `systemd-boot-random-seed.service` is masked in the base layer (systemd-boot refreshes the
+  seed), and `systemd-boot-update.service` (enabled since 2026-10-18: nothing else updates
+  systemd-boot on the ESP) gets a drop-in that remounts `/boot` read-write in the unit's own mount
+  namespace (`PrivateMounts=yes`), as bootc does to write the entries (`mount_esp_writable` in
+  `bootc_composefs/boot.rs`): the remount changes the superblock, but the system's mount keeps its
+  own read-only flag. Without it `bootctl update` fails as soon as the image has a newer
+  systemd-boot than the ESP (the boot test cannot see it: it installs the image's own).
 - `bootc/install` (live ISO): podman storage on a tmpfs (overlay cannot sit on the live overlayfs
   root), `wipefs` + `mount -t btrfs` (udev's cached probe still says ext4), the target at
   `/target` in the container (`/mnt` links to `var/mnt` in a bootc image), user/hostname/Wi-Fi

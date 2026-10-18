@@ -1,0 +1,48 @@
+#!/usr/bin/bash
+# Apply the layers of a host to the container being built (bootc/Containerfile): the layers named
+# in bootc/layers/host/<host>/layers.list, in that order, then the host directory itself. Each
+# layer installs its packages.list, then copies its overlay/ to /. Then the sigstore key, the
+# presets and the locales.
+set -euo pipefail
+
+host=$1
+root=/ctx/bootc/layers
+[[ -f $root/host/$host/layers.list ]] || { echo "No host $host in bootc/layers/host" >&2; exit 1; }
+mapfile -t layers < <(grep -vE '^\s*(#|$)' "$root/host/$host/layers.list")
+layers+=("host/$host")
+
+# Copy an overlay directory to / like arkdep-build's cp -r: root owns the new files, their modes
+# follow root's umask, and existing files and directories keep their owner and mode (only the
+# contents of a file change). The checkout belongs to UID 1000 with umask 0002: extracting it as is
+# made /usr, /etc/systemd, /etc/sudoers.d... UID 1000 and 775 (sudo ignored sudoers.d, iwd could not
+# register on D-Bus), and COPY applied its 775 directory modes to existing directories. The copy
+# goes through a root-owned staging directory first.
+copy_overlay() {
+	local stage
+	stage=$(mktemp -d)
+	tar -C "$1" -cf - . | tar -C "$stage" -xf - --no-same-owner --no-same-permissions
+	cp -r "$stage"/. /
+	rm -r "$stage"
+}
+
+for layer in "${layers[@]}"; do
+	dir=$root/$layer
+	[[ -d $dir ]] || { echo "$host: no layer $layer" >&2; exit 1; }
+	echo "== Layer $layer"
+	if [[ -f $dir/packages.list ]]; then
+		mapfile -t pkgs < <(grep -vE '^\s*(#|$)' "$dir/packages.list")
+		((${#pkgs[@]} == 0)) || pacman -S --noconfirm --needed "${pkgs[@]}"
+	fi
+	if [[ -d $dir/overlay ]]; then
+		copy_overlay "$dir/overlay"
+	fi
+done
+
+# The key that the base layer's policy.json checks the registry's images with
+install -D -m 644 /ctx/keys/distro-builder-sigstore.pub /etc/pki/containers/distro-builder.pub
+
+systemctl preset-all
+systemctl --global preset-all
+locale-gen
+
+pacman -Scc --noconfirm

@@ -91,7 +91,7 @@ mkdir -p /etc/containers/registries.conf.d
 printf '[[registry]]\nlocation = "%s"\ninsecure = true\n' "$REGISTRY" \
 	>/etc/containers/registries.conf.d/50-distro-builder.conf
 # The image must carry the build server's sigstore signature (bootc/build), like every update on
-# the installed system (policy.json of the generic overlay, image/arkdep-build.d/depends): the
+# the installed system (policy.json of the base layer, bootc/layers/base): the
 # public key comes from this repository, like this script; the signature from the registry, next
 # to the image
 mkdir -p /etc/pki/containers /etc/containers/registries.d

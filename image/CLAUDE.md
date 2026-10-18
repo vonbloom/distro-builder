@@ -1,5 +1,9 @@
 # arkdep images and recipes (`image/`)
 
+Frozen since 2026-10-18: the bootc images have their own layers (`bootc/layers`), and these
+recipes only get fixes while the P14s runs arkdep. New packages and configuration go to
+`bootc/layers`; a fix the P14s needs now goes to both. The directory goes once the P14s runs bootc.
+
 - `image/build [--rebuild-builder] <recipe>` builds the `arkdep-builder` podman image (when missing
   or older than 7 days; arkdep from `arkanelinux/pkgbuild`) and runs `arkdep-build.sh` inside it,
   writing to `/mnt/repo/<recipe>`.

@@ -101,14 +101,24 @@ def checkout_recipes():
         return []
 
 
+def checkout_hosts():
+    """bootc hosts of the checkout: the directories of bootc/layers/host with a layers.list"""
+    d = os.path.join(CHECKOUT, "bootc", "layers", "host")
+    try:
+        return sorted(h for h in os.listdir(d) if os.path.isfile(os.path.join(d, h, "layers.list")))
+    except OSError:
+        return []
+
+
 def build_units():
-    """The units with a build-* timer (build-aur and the scheduled images), the arkdep and bootc
-    units of every recipe (scheduled or manual, see ./install), build-iso (manual) and
-    build-userland."""
+    """The units with a build-* timer (build-aur and the scheduled images), the arkdep unit of every
+    recipe and the bootc unit of every host (scheduled or manual, see ./install), build-iso
+    (manual) and build-userland."""
     out = run(["systemctl", "list-units", "--all", "--plain", "--no-legend", "--type=timer", "build-*"])
     timers = {t[: -len(".timer")] + ".service": t for t in (line.split()[0] for line in out.splitlines() if line.strip())}
     units = set(timers) | {"build-iso.service", "build-userland.service"}
-    units |= {f"build-{kind}@{r}.service" for r in checkout_recipes() for kind in ("image", "bootc")}
+    units |= {f"build-image@{r}.service" for r in checkout_recipes()}
+    units |= {f"build-bootc@{h}.service" for h in checkout_hosts()}
     return sorted(units), timers
 
 

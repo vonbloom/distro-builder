@@ -1,8 +1,9 @@
 # Prospect: layered images for every machine (yamaha included)
 
-Exploration only, nothing implemented (2026-10-09). It extends the "Layered images" item of
-`todo.md` (bootc builds) with what a third kind of machine needs. The goal is bootc everywhere;
-arkdep goes once the P14s runs bootc.
+Exploration (2026-10-09). It extends the "Layered images" item of `todo.md` (bootc builds) with
+what a third kind of machine needs. The goal is bootc everywhere; arkdep goes once the P14s runs
+bootc. Since 2026-10-18 the bootc images are built from these layers (`bootc/layers`, below in
+Order); yamaha is not there yet.
 
 ## Why yamaha
 
@@ -141,6 +142,13 @@ to a user account. PulseAudio is fine; upstream it is in maintenance mode.
   `pvecm qdevice setup` again.
 
 ## Order
+
+Changed on 2026-10-18: the bootc side skipped phase 1 and went to the layers directly
+(`bootc/layers`: `base`, `modules/laptop`, `modules/workstation`, `desktop/sway`, `host/<host>`,
+applied in order by `bootc/apply-layers` in the one Containerfile, the same packages and files as
+the recipes), and `image/arkdep-build.d` is frozen for the P14s. yamaha needs no arkdep recipe: it
+becomes `bootc/layers/host/yamaha` plus `desktop/cinnamon` and the audio modules. Left from phase
+2: an image per layer in the registry. The original plan:
 
 1. **Phase 1, in today's recipe format.** It works for both arkdep and bootc
    (`bootc/build-recipe.sh` replays the recipe), so yamaha does not have to wait for the P14s to

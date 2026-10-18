@@ -9,6 +9,7 @@
 # - no stray files tracked (Python bytecode, editor swap files)
 # - commands are executable: files in bin/ and sbin/, and extensionless scripts of the tools
 # - recipe structure: what arkdep-build needs from each device recipe
+# - bootc layers: what bootc/apply-layers needs from each host and the layers it names
 
 set -uo pipefail
 
@@ -16,6 +17,7 @@ cd "$(dirname "$(readlink -f "$0")")/.." || exit 1
 
 SHELLCHECK_IMAGE=docker.io/koalaman/shellcheck:v0.11.0
 RECIPES=image/arkdep-build.d
+LAYERS=bootc/layers
 
 failed=()
 fail() { failed+=("$1"); }
@@ -74,6 +76,25 @@ for dir in "$RECIPES"/*/; do
 		[[ -d $RECIPES/$dep ]] || { echo "$recipe: depends.list names a missing layer: $dep"; fail "recipe $recipe"; }
 	done < <(grep -vE '^\s*(#|$)' "$dir/depends.list" 2>/dev/null)
 done
+
+echo "== bootc layers"
+for f in pacman.conf mirrorlist packages.list; do
+	[[ -f $LAYERS/base/$f ]] || { echo "base: no $f (bootc/Containerfile)"; fail "layer base"; }
+done
+for dir in "$LAYERS"/host/*/; do
+	host=$(basename "$dir")
+	[[ -f $dir/layers.list ]] || { echo "host $host: no layers.list"; fail "host $host"; continue; }
+	[[ $(grep -vE '^\s*(#|$)' "$dir/layers.list" | head -1) == base ]] ||
+		{ echo "host $host: layers.list must start with base"; fail "host $host"; }
+	while read -r layer; do
+		[[ -d $LAYERS/$layer && $layer != host/* ]] ||
+			{ echo "host $host: layers.list names a missing layer: $layer"; fail "host $host"; }
+	done < <(grep -vE '^\s*(#|$)' "$dir/layers.list")
+done
+# A layer is a directory with a packages.list or an overlay/
+while read -r dir; do
+	[[ -f $dir/packages.list || -d $dir/overlay ]] || { echo "${dir#"$LAYERS"/}: no packages.list or overlay/"; fail "layer $dir"; }
+done < <(find "$LAYERS" -mindepth 1 -maxdepth 2 -type d ! -name overlay ! -path "$LAYERS/modules" ! -path "$LAYERS/desktop" ! -path "$LAYERS/host" | grep -v '/overlay')
 
 echo
 if ((${#failed[@]})); then

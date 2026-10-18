@@ -1,0 +1,2 @@
+/* "current": the light or dark theme, switched by darkman (/usr/share/darkman/desktop-theme) */
+@theme "current"

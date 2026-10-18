@@ -1,0 +1,26 @@
+// -*- mode: jsonc -*-
+// One bar per output, both from bar.jsonc. The brightness module only controls the laptop panel,
+// so the external monitors' bars leave it out (keys set here win over the included file).
+[
+    {
+        "output": "eDP-1",
+        "include": ["/etc/xdg/waybar/bar.jsonc"]
+    },
+    {
+        "output": ["!eDP-1", "*"],
+        "include": ["/etc/xdg/waybar/bar.jsonc"],
+        "modules-right": [
+            "custom/arkdep",
+            "custom/userland",
+            "mpd",
+            "pulseaudio",
+            "network",
+            "cpu",
+            "memory",
+            "temperature",
+            "battery",
+            "tray",
+            "custom/power"
+        ]
+    }
+]

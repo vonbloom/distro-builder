@@ -1,0 +1,30 @@
+#!/bin/sh
+REPO="vonbloom/dotfiles.git"
+REPO_URL="https://github.com/$REPO"
+DOT_DIR="$HOME/.dotfiles"
+
+if test ! -d "$DOT_DIR"; then
+    echo "Cloning dotfiles..."
+    git clone "$REPO_URL" "$DOT_DIR"
+    cd "$DOT_DIR" || exit 1
+    git remote set-url origin git@github.com:"$REPO"
+    [ -f install ] && ./install
+fi
+
+xdg-user-dirs-update
+
+# The boxes come from the userland image (distro-builder userland/): created here the first time,
+# replaced later by userland-update when the user chooses (it stops the apps running in them). A
+# new box installs nothing on its first start (the image has distrobox's dependencies), so it can
+# no longer be left half set up by a session that ends meanwhile
+if podman container exists userland; then
+    echo "The userland box exists: userland-update replaces it with a newer image"
+else
+    echo "Creating the distroboxes from the userland image..."
+    userland-update --yes || exit 1
+fi
+
+# No notification daemon outside sway (a console or SSH login): not a failure
+if command -v notify-send >/dev/null; then
+    notify-send -t 3000 -i distropix "Sistema a punt" "Dotfiles i contenidors Distrobox configurats correctament." || true
+fi
