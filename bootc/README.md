@@ -194,7 +194,7 @@ the installer ISO (`cow_spacesize=2G`), `bootc/install` downloaded from GitHub:
 
 ## Problems found
 
-- bootcrew's Arch image has failed to build every day since 2026-08-31 (CI). Building bootc on
+- bootcrew's Arch image has failed to build every day since 2026-09-03 (CI). Building bootc on
   Arch needs `--no-default-features` (the `selinux` feature links libselinux, only in the AUR).
 - The recipe's `NoExtract usr/include/*` breaks compiling bootc: the builder stage uses plain Arch.
 - podman bind mounts `/etc/resolv.conf` and `/etc/hostname` during builds: `--no-hostname`, and the
