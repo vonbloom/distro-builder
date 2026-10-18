@@ -84,6 +84,11 @@ How `arkdep-build` processes a recipe (relevant constraints):
 - **btrfs scrub**: `btrfs-scrub@-.timer` (monthly, from `btrfs-progs`, enabled in `81-custom.preset`)
   scrubs the whole filesystem; on a single device it detects corruption but can only repair
   metadata (DUP).
+- **ESP and TRIM** (`81-custom.preset`, 2026-10-18; both were left out by `disable *` before):
+  `systemd-boot-update.service` copies a newer systemd-boot from the image to the ESP at boot
+  (`bootctl --graceful update`; neither arkdep nor bootc updates it after the install), and
+  `fstrim.timer` trims weekly what is mounted without `discard` (ext4 `/home` on the T480; btrfs
+  with `discard=async` needs it less, harmless).
 - **Journal**: `/var/log/journal` is per deployment; capped with `SystemMaxUse=1G` in
   `depends/generic/.../journald.conf.d/50-size.conf` (default would be 4 GiB each).
 - **Menus**: every system menu is a rofi script in `depends/sway/.../usr/local/bin` (e.g.

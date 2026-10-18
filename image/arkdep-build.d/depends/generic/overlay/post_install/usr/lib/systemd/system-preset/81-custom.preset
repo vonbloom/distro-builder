@@ -9,6 +9,8 @@ enable systemd-logind.service
 enable systemd-timesyncd.service
 enable remote-fs.target
 enable nftables.service
+# Copies a newer systemd-boot from the image to the ESP at boot (bootctl update): nothing else does
+enable systemd-boot-update.service
 
 # Sockets
 enable systemd-userdbd.socket
@@ -20,5 +22,7 @@ enable virtlogd.socket
 enable btrbk.timer
 # Monthly scrub of the whole btrfs filesystem (instance "-" is /, any mount point scrubs all of it)
 enable btrfs-scrub@.timer -
+# Weekly TRIM: ext4 (the T480's /home) is mounted without discard
+enable fstrim.timer
 
 disable *
