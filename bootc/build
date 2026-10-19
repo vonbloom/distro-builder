@@ -2,8 +2,9 @@
 # Usage: build <host>
 # Build the bootc image of a host (bootc/layers, bootc/Containerfile), split it into per-package layers
 # with chunkah (an update then downloads only the packages that changed) and push it to the
-# registry as <recipe>:candidate with skopeo, signed. bootc/test installs it in a VM, and updates
-# a VM installed with the current latest to it; only when both boot do <recipe>:YYYY-MM-DD and
+# registry as <recipe>:candidate with skopeo, signed. bootc/test installs it in a VM (where an
+# update that does not boot must bring it back by itself), and updates a VM installed with the
+# current latest to it; only when both pass do <recipe>:YYYY-MM-DD and
 # <recipe>:latest, the tag the clients follow, name it, and its package list goes to PKGS_DIR
 # (notify-image, the status page, bootc-update). A failed test leaves latest as it was, the
 # candidate in the registry, its package list in PKGS_DIR/candidate.packages and the serial logs
@@ -60,17 +61,19 @@ fi
 push_image "$IMAGE" "$REPOSITORY" "$TAG" candidate --label ostree.bootable=1 --label containers.bootc=1
 
 # The candidate, pulled from the registry with the clients' policy, must boot before the clients
-# get it. composefs bootc has no boot counting: an image that does not boot would wait on the T480
-# (bootc-update stages it within 4 hours) until the user picks the previous entry by hand
-BOOT_LOG=$PKGS_DIR/candidate.log bootc/test "$REGISTRY/$REPOSITORY:candidate"
+# get it, and its boot counting must work: an update to latest made to fail its boots must bring
+# it back by itself (bootc-boot-count, systemd-boot). A host's first image has no latest yet
+latest=$REGISTRY/$REPOSITORY:latest
+curl -sf -o /dev/null -I -H 'Accept: application/vnd.oci.image.manifest.v1+json' \
+	"http://$REGISTRY/v2/$REPOSITORY/manifests/latest" || latest=''
+BOOT_LOG=$PKGS_DIR/candidate.log bootc/test ${latest:+--fallback "$latest"} \
+	"$REGISTRY/$REPOSITORY:candidate"
 # And as the clients get it: an update from the image latest names now, with a machine's local
-# state (a host's first image has no latest yet)
-if curl -sf -o /dev/null -I -H 'Accept: application/vnd.oci.image.manifest.v1+json' \
-	"http://$REGISTRY/v2/$REPOSITORY/manifests/latest"; then
-	BOOT_LOG=$PKGS_DIR/candidate-update.log bootc/test --from "$REGISTRY/$REPOSITORY:latest" \
-		"$REGISTRY/$REPOSITORY:candidate"
+# state
+if [[ -n $latest ]]; then
+	BOOT_LOG=$PKGS_DIR/candidate-update.log bootc/test --from "$latest" "$REGISTRY/$REPOSITORY:candidate"
 else
-	echo "No $REPOSITORY:latest yet: no update test"
+	echo "No $REPOSITORY:latest yet: no fallback or update test"
 fi
 
 tag_image "$REPOSITORY" candidate "$TAG" latest

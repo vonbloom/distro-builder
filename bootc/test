@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Usage: test [--from <previous image>] <image>
+# Usage: test [--from <previous image> | --fallback <other image>] <image>
 # Boot test of a bootc image, run by bootc/build before latest names it, in a throwaway VM (QEMU
 # with KVM and OVMF, NAT networking that reaches the registry).
 # - test <image>: what a new install does. The image is pulled from the registry with the
@@ -11,6 +11,16 @@
 #   hostname, an image file edited, a port opened with fw, a file in /var), switched to <image>
 #   with bootc switch (pulled inside the VM, with the clients' policy: the update path itself) and
 #   rebooted. It must boot <image>, keep the local state, and keep <previous> as the rollback.
+#   When <previous> has boot counting (bootc-boot-count), the update must be counted and then
+#   marked good (systemd-bless-boot).
+# - test --fallback <other> <image>: <image> installed and booted as a new install, following
+#   <other> (bootc install --target-imgref, as an install follows latest), then an update to it
+#   that never completes its boot: bootc-update stages <other> as the clients' timer does, and its
+#   boot entry gets systemd.unit=reboot.target (the system reboots as soon as the initramfs hands
+#   over). <image> counts it at the shutdown (bootc-boot-count); after its three tries
+#   systemd-boot must boot <image> again by itself, <other>'s entry marked bad (+0-3), and
+#   bootc-update must not stage <other> again (bootc upgrade skips an image that is the rollback)
+#   and must report it.
 # Each boot passes when the system answers over SSH and reaches "running" (no failed unit) and the
 # journal, forwarded to the serial console, shows no failure line, within BOOT_TIMEOUT seconds.
 # root gets a throwaway SSH key at the install (bootc install --root-ssh-authorized-keys). It does
@@ -19,17 +29,23 @@
 # /dev/kvm (VM 202: cpu host, homelab host_vars/zeus.yml), qemu-system-x86, ovmf and ssh.
 # Local test runs (no signing key, the image unsigned): ALLOW_UNSIGNED=1, and on Arch
 # OVMF_CODE=/usr/share/edk2/x64/OVMF_CODE.4m.fd OVMF_VARS=/usr/share/edk2/x64/OVMF_VARS.4m.fd
-# (--from needs signed images: bootc switch in the VM checks them)
+# (--from and --fallback need signed images: bootc switch and bootc upgrade in the VM check them)
 
 set -euo pipefail
 
 cd "$(dirname "$(readlink -f "$0")")/.."
 
-FROM=''
-if [[ ${1:-} == --from ]]; then
+FROM='' FALLBACK=''
+case ${1:-} in
+--from)
 	FROM=${2:?--from needs an image reference}
 	shift 2
-fi
+	;;
+--fallback)
+	FALLBACK=${2:?--fallback needs an image reference}
+	shift 2
+	;;
+esac
 IMAGE=${1:?An image reference must be specified}
 INSTALL=${FROM:-$IMAGE}
 BOOT_TIMEOUT=${BOOT_TIMEOUT:-600}
@@ -69,7 +85,7 @@ log=${BOOT_LOG:-$work/serial.log}
 
 failures() { grep -aE "$FAILURE" "$log" | grep -avE "$USER_MANAGER"; }
 fail() {
-	echo "Boot test failed${FROM:+ (update from $FROM)}: $*${BOOT_LOG:+; serial log in $BOOT_LOG}" >&2
+	echo "Boot test failed${FROM:+ (update from $FROM)}${FALLBACK:+ (fallback from $FALLBACK)}: $*${BOOT_LOG:+; serial log in $BOOT_LOG}" >&2
 	failures | tr -d '\r' | head -20 >&2 || true
 	echo "--- last lines of the serial log" >&2
 	tail -n 40 "$log" | tr -d '\r' >&2
@@ -91,7 +107,10 @@ podman pull "${pull[@]}" "$INSTALL"
 
 # The image installs itself from the host's container storage, as from the ISO (bootc/install).
 # --generic-image: no firmware boot entry, on the build server's own firmware. The journal goes to
-# the serial console: any failure, also after the getty started
+# the serial console: any failure, also after the getty started. The ESP read-only at /boot as on
+# an installed machine (bootc/install: bootc writes systemd.mount-extra=UUID=<ESP>:/boot:auto:ro);
+# to-disk's own layout leaves it to systemd-gpt-auto-generator, which mounts it read-write (and
+# for root only), so the remounts of bootc-boot-count and systemd-bless-boot went untested
 ssh-keygen -q -t ed25519 -N '' -C bootc-test -f "$work/key"
 truncate -s 20G "$work/disk.raw"
 podman run --rm --privileged --pid=host --ipc=host --security-opt label=type:unconfined_t \
@@ -99,6 +118,8 @@ podman run --rm --privileged --pid=host --ipc=host --security-opt label=type:unc
 	"$INSTALL" bootc install to-disk --via-loopback --generic-image --composefs-backend \
 	--bootloader systemd --filesystem ext4 --karg rootflags=noatime \
 	--karg console=ttyS0 --karg systemd.journald.forward_to_console=1 \
+	--karg systemd.mount-extra=LABEL=EFI-SYSTEM:/boot:vfat:ro \
+	${FALLBACK:+--target-imgref "$FALLBACK"} \
 	--root-ssh-authorized-keys /work/key.pub /work/disk.raw
 podman rmi "$INSTALL" >/dev/null
 
@@ -145,6 +166,14 @@ boot() {
 }
 
 boot ''
+guest 'findmnt -no OPTIONS /boot | grep -q "^ro,"' || fail "/boot is not the ESP mounted read-only"
+
+problems=()
+check() { guest "$2" >/dev/null 2>&1 || problems+=("$1"); }
+booted_digest() {
+	guest bootc status --format json |
+		python3 -c 'import json,sys; print(json.load(sys.stdin)["status"]["booted"]["image"]["imageDigest"])'
+}
 
 if [[ -n $FROM ]]; then
 	# A machine's own state: what the 3-way merge of /etc must keep, and /var, which bootc never
@@ -163,12 +192,13 @@ if [[ -n $FROM ]]; then
 		"http://$registry/v2/${ref%:*}/manifests/${ref##*:}" |
 		sed -n 's/^[Dd]ocker-[Cc]ontent-[Dd]igest: *//p' | tr -d '\r')
 	[[ -n $digest ]] || fail "no manifest for $IMAGE in the registry"
+	# The booted image counts the update at the shutdown: none before 2026-10-19
+	counted=0
+	guest test -x /usr/bin/bootc-boot-count && counted=1
 	guest bootc switch --quiet "$IMAGE" || fail "bootc switch $IMAGE failed"
 	guest systemctl reboot || true
 	boot "$BOOT_ID"
 
-	problems=()
-	check() { guest "$2" >/dev/null 2>&1 || problems+=("$1"); }
 	status=$(guest bootc status --format json)
 	read -r booted rollback < <(python3 -c '
 import json, sys
@@ -183,8 +213,45 @@ print(s["booted"]["image"]["imageDigest"], roll.get("image", {}).get("image", "n
 	check "the edit of /etc/issue lost" 'grep -q "upgrade-test: a local edit" /etc/issue'
 	check "the port opened with fw lost" 'grep -q 12345 /etc/nftables.d/fw.nft && nft list set inet filter allowed_tcp | grep -q 12345'
 	check "the file in /var lost" '[ "$(cat /var/lib/upgrade-test/state)" = kept ]'
+	# systemd-bless-boot only runs on a boot that systemd-boot counted, and drops the counter
+	if ((counted)); then
+		check "the update not counted or not marked good" \
+			'systemctl is-active -q systemd-bless-boot.service && ! ls /boot/loader/entries | grep -qF +'
+	else
+		echo "$FROM has no boot counting: the update was not counted"
+	fi
 	((${#problems[@]} == 0)) || fail "after the update: $(printf '%s; ' "${problems[@]}")"
 fi
 
+if [[ -n $FALLBACK ]]; then
+	before=$(booted_digest)
+	guest bootc-update | grep -q '^Staged: ' || fail "bootc-update staged no update to $FALLBACK"
+	# The staged entry, found by the deployment id as bootc-boot-count does, edited in a mount
+	# namespace of its own (the ESP is mounted read-only)
+	guest bash -s <<-'EOF' || fail "could not break the boot entry of $FALLBACK"
+		set -euo pipefail
+		id=$(python3 -c 'import json; print(json.load(open("/run/composefs/staged-deployment"))["depl_id"])')
+		unshare -m sh -c 'mount -o remount,rw /boot &&
+			sed -i "/^options .*composefs\.digest=[^ ]*:$1/s/\$/ systemd.unit=reboot.target/" \
+				/boot/loader/entries.staged/*.conf' sh "$id"
+		grep -q 'systemd\.unit=reboot\.target' /boot/loader/entries.staged/*.conf
+	EOF
+	guest systemctl reboot || true
+	# Three boots of <other> that reboot at once (no SSH), then <image>
+	boot "$BOOT_ID"
+
+	[[ $(booted_digest) == "$before" ]] || problems+=("booted $(booted_digest), not $IMAGE again")
+	check "no entry of $FALLBACK with no tries left" \
+		'[ "$(grep -l systemd.unit=reboot.target /boot/loader/entries/*+0-3.conf | wc -l)" -eq 1 ]'
+	# Every 4 hours on the clients: no new image, and the one that did not boot not staged again
+	update=$(guest bootc-update 2>&1) || problems+=("bootc-update failed: $update")
+	grep -q '^No update staged' <<<"$update" || problems+=("bootc-update staged it again: $update")
+	grep -q '^Did not boot: ' <<<"$update" || problems+=("bootc-update did not report it: $update")
+	# As a user: it reads the boot entries on the ESP
+	check "the waybar indicator did not report it" \
+		'[ ! -x /usr/bin/arkdep-update-status ] || runuser -u nobody -- arkdep-update-status | grep -qF "\"class\": \"failed\""'
+	((${#problems[@]} == 0)) || fail "after the failed update: $(printf '%s; ' "${problems[@]}")"
+fi
+
 failures >/dev/null && fail "a failure on the serial console"
-echo "Boot test passed${FROM:+ (update from $FROM)}"
+echo "Boot test passed${FROM:+ (update from $FROM)}${FALLBACK:+ (fallback from $FALLBACK)}"

@@ -1,0 +1,43 @@
+#!/usr/bin/bash
+# Boot counting for the image bootc has just finalized: its boot entry gets three tries, "+3" in
+# the file name (systemd-boot's boot assessment, systemd-boot(7) "Boot Counting"). composefs bootc
+# writes its entries without a counter (bootc-boot-failure-detection(7): "likely to be added in the
+# future"). Run at shutdown by bootc-finalize-staged.service (drop-in boot-count.conf), after bootc
+# has moved the staged entries into /boot/loader/entries.
+# systemd-boot takes one try at each boot of the entry (+2-1, +1-2...), and systemd-bless-boot
+# removes the counter once a boot reaches boot-complete.target without a failed unit
+# (systemd-boot-check-no-failures). An entry with no tries left (+0-3) sorts last: the previous
+# image boots. bootc reads the entries by their contents, so the name does not matter to it.
+
+set -euo pipefail
+
+TRIES=3
+ENTRIES=/boot/loader/entries
+# Written by bootc upgrade and bootc switch, and left in /run until the shutdown
+STAGED=/run/composefs/staged-deployment
+
+[[ -f $STAGED && -d $ENTRIES ]] || exit 0
+# The staged deployment's id (the fs-verity digest of its image) and whether bootc left it staged
+# (download only: bootc upgrade --download-only)
+read -r id locked < <(python3 -c '
+import json, sys
+s = json.load(open(sys.argv[1]))
+print(s["depl_id"], s.get("finalization_locked", False))' "$STAGED")
+[[ $locked == False ]] || exit 0
+
+# Its entry has it in composefs.digest=<format>:<id>. None in entries/ when bootc did not swap
+# them in (still in entries.staged)
+mapfile -t found < <(grep -lE "^options .*composefs\.digest=[^ ]*:$id( |$)" "$ENTRIES"/*.conf || true)
+if ((${#found[@]} != 1)); then
+	echo "bootc-boot-count: ${#found[@]} boot entries for deployment $id in $ENTRIES, none counted" >&2
+	exit 0
+fi
+entry=${found[0]}
+name=${entry##*/}
+[[ $name =~ \+[0-9]+(-[0-9]+)?\.conf$ ]] && exit 0
+
+# The ESP is mounted read-only; read-write only in this unit's mount namespace (PrivateMounts=)
+mount -o remount,rw /boot
+mv "$entry" "$ENTRIES/${name%.conf}+$TRIES.conf"
+sync "$ENTRIES"
+echo "bootc-boot-count: $name has $TRIES tries"

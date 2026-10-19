@@ -7,8 +7,9 @@
 # home). Waybar refreshes it every hour and on SIGRTMIN+8, sent by refresh: after any deploy
 # (arkdep-update-status.path watches the boot entries) or by hand.
 # On a bootc system (no /arkdep, a trial: bootc/README.md) bootc-update.timer stages new images:
-# the module shows the staged one (/run/bootc-update/staged, it sends the signal itself), and the
-# click looks for a newer one now.
+# the module shows the staged one (/run/bootc-update/staged, it sends the signal itself), or else
+# an image that did not boot (its boot entry has no tries left: bootc-boot-count), and the click
+# looks for a newer one now.
 
 set -uo pipefail
 
@@ -42,7 +43,15 @@ changed_packages() {
 if ((bootc)); then
 	recipe='' version='' pkgs=''
 	eval "$(grep -E '^(recipe|version|pkgs)=[A-Za-z0-9:/._-]*$' /run/bootc-update/staged 2>/dev/null)"
-	if [[ -z $recipe ]]; then
+	# systemd-boot went back to the previous image; bootc upgrade does not stage this one again
+	failed=''
+	for entry in /boot/loader/entries/*+0.conf /boot/loader/entries/*+0-*.conf; do
+		[[ -f $entry ]] && failed=$(sed -n 's/^title //p' "$entry")
+	done
+	if [[ -z $recipe && -n $failed ]]; then
+		running=$(. /usr/lib/os-release && echo "$PRETTY_NAME")
+		json "󰀦" failed "$failed did not boot (3 tries): $running runs instead.\nA newer image replaces it. Click to look for one now."
+	elif [[ -z $recipe ]]; then
 		json "" "" ""
 	elif [[ -n $pkgs ]]; then
 		changes=$(changed_packages "$pkgs")

@@ -114,6 +114,26 @@ image's `VERSION_ID` (`initrd-release`); now only when a file it holds changes (
       image, boots 13.2 s then 12.1 s; the build 6 min 40 s in all. Test images deleted from the
       registry afterwards (`prune` keeps what latest names: the manifests by hand, then the
       garbage collection).
+- [x] **Boot counting** (2026-10-19): an update's boot entry gets `+3` when bootc applies it at
+      the shutdown (`bootc-boot-count`, an `ExecStop=` of `bootc-finalize-staged.service`),
+      `systemd-bless-boot` marks it good after a boot without a failed unit
+      (`systemd-boot-check-no-failures`), and after three boots that do not get there systemd-boot
+      boots the previous image again; `bootc upgrade` does not stage the failed image again, and
+      `bootc-update` and the waybar indicator report it (`bootc/CLAUDE.md`). `bootc/test
+      --fallback latest <candidate>` tests it on every build: the candidate installed following
+      latest, `bootc-update` staging latest with `systemd.unit=reboot.target` added to its entry,
+      three boots that reboot at once, then the candidate again. The update test checks that the
+      update was counted and marked good. Validated with four builds to `test/t480` on the server
+      (the first one the latest of the others), which found three faults: the test VM's ESP was a
+      read-write gpt-auto automount (`to-disk` writes no `systemd.mount-extra`), so it now gets the
+      read-only mount of an installed machine; `systemd-bless-boot` then failed on it ("Read-only
+      file system": a remount in `ExecStartPre=` does not reach `ExecStart=`), which would have made
+      every good update fall back after three boots, and so would `systemd-boot-update` have failed
+      with the next systemd-boot, both now remount in the command's own process; and the zram
+      reset at the shutdown failed once ("Device or resource busy"), now ignored. The fourth build
+      passed both tests in 8 min (the fallback adds ~70 s): its entry counted and marked good after
+      the update, latest's entry `+0-3` after three boots, the candidate back, `bootc-update`
+      reporting it and not staging it again (`bootc status`: `bootOrder: rollback`).
 - [x] The T480 is `degraded` (2026-10-18, `t480:2026-10-11`, up 6 days): `btrbk.service` fails
       (its `snapshot_dir /arkdep/snapshots` does not exist under bootc, bootc/README "Missing
       before real use") and `systemd-networkd-wait-online.service` timed out. Neither is part of
@@ -374,6 +394,10 @@ replace the UKI, so a UKI alone adds little.
         (`verity=require`, `mokutil --sb-state`) before touching the T480's firmware.
 
 Upstream issues with a local workaround, to drop when they are fixed in a bootc release:
+
+- [ ] Boot counting on composefs (none reported yet; `bootc-boot-failure-detection(7)`: "likely
+      to be added in the future"): `bootc-boot-count` and the `bootc-finalize-staged.service`
+      drop-in of the base layer, once bootc writes counted entries itself.
 
 - [ ] bootc-dev/bootc#2557 (no firmware boot entry with `--bootloader systemd`): the
       `efibootmgr` step of `bootc/install`.

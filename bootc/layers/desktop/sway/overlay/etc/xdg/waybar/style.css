@@ -342,6 +342,12 @@ label:focus {
     background-color: #cf5700;
 }
 
+/* bootc: the new image did not boot, the previous one runs */
+#custom-arkdep.failed {
+    background-color: #eb4d4b;
+    color: #ffffff;
+}
+
 #custom-userland.available {
     background-color: #00796b;
 }

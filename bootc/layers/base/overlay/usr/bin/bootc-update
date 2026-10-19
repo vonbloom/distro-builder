@@ -35,5 +35,13 @@ else
 	rm -f "$STATUS.new" "$STATUS"
 	echo "No update staged"
 fi
+# An entry with no tries left (bootc-boot-count): its image did not boot and systemd-boot went back
+# to the previous one. bootc upgrade does not stage it again (it is the rollback deployment); a
+# newer image replaces it
+for entry in /boot/loader/entries/*+0.conf /boot/loader/entries/*+0-*.conf; do
+	if [[ -f $entry ]]; then
+		echo "Did not boot: $(sed -n 's/^title //p' "$entry") (${entry##*/})"
+	fi
+done
 # The indicator reads it again on SIGRTMIN+8 (waybar's "signal": 8)
 pkill -RTMIN+8 -x waybar || true

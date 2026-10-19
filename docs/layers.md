@@ -119,9 +119,11 @@ to a user account. PulseAudio is fine; upstream it is in maintenance mode.
   ser2net port.
 - **Updates:** `bootc-update.timer` stages the new image; yamaha also needs an automatic reboot
   at night. The laptops keep the reboot to the user. With an automatic reboot, the boot test
-  before publishing `latest` (`todo.md`, bootc builds) becomes a prerequisite: the composefs
-  backend has no boot counting, so a broken image would leave Zigbee, the vote and the music down
-  until someone picks the previous entry.
+  before publishing `latest` (`todo.md`, bootc builds) becomes a prerequisite, and so does the
+  boot counting of the base layer (since 2026-10-19, `bootc/CLAUDE.md`): after three failed boots
+  systemd-boot goes back to the previous image. A kernel panic and emergency mode wait for a
+  reset, though: yamaha needs `panic=` (a karg of its host layer) and a reboot out of emergency
+  mode, or Zigbee, the vote and the music stay down until someone power cycles it.
 - **State:** bootc keeps local changes to `/etc` across updates (3-way merge) and never touches
   `/var`. The qnetd NSS database, the Bluetooth pairings (`/var/lib/bluetooth`) and the network
   connections survive without anything like arkdep's `migrate_files`.

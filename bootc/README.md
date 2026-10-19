@@ -30,11 +30,13 @@ directory.
   20 % fewer packages than the previous one is not pushed (a stage of the recipe that installed
   nothing).
 - `bootc/test` then tests the candidate in VMs (QEMU, KVM, UEFI), checked over SSH: installed
-  new (pulled as the clients would, signature checked), and as an update: the current `latest`
-  installed, given a machine's local state (a user, the hostname, an edited file, a port opened
-  with `fw`, a file in `/var`), switched to the candidate with `bootc switch` and rebooted. Only
-  when both boot without a failed unit, the update with the local state kept and the old image as
-  the rollback, do `<recipe>:YYYY-MM-DD` and `<recipe>:latest`, the tag the bootc systems follow,
+  new (pulled as the clients would, signature checked), then updated by `bootc-update` to the
+  current `latest` made to fail its boots, which must bring the candidate back by itself (boot
+  counting, below); and as an update: the current `latest` installed, given a machine's local
+  state (a user, the hostname, an edited file, a port opened with `fw`, a file in `/var`),
+  switched to the candidate with `bootc switch` and rebooted. Only when both pass (no failed unit,
+  the local state kept, the old image as the rollback, the update counted and marked good), do
+  `<recipe>:YYYY-MM-DD` and `<recipe>:latest`, the tag the bootc systems follow,
   name it, and the package list goes to `/mnt/repo/bootc/<recipe>/` for the notification. After a
   failed test `latest` stays where it was, the candidate stays in the registry for review, and the
   serial logs are `http://192.168.2.50/bootc/<recipe>/candidate.log` and `candidate-update.log`.
@@ -58,6 +60,13 @@ directory.
   downloads and stages the newest image of its tag; it starts on the next boot. The waybar
   indicator (`arkdep-update-status`, same module as arkdep's) shows a staged image with its package
   changes; a click (or `sudo bootc-update`) looks for a newer one now.
+- Boot counting: an update gets three tries. Its boot entry is renamed `...+3.conf` when bootc
+  applies it at the shutdown (`bootc-boot-count`, in `bootc-finalize-staged.service`);
+  systemd-boot takes a try at each boot of it, and `systemd-bless-boot` marks it good (drops the
+  counter) once a boot ends without a failed unit (`systemd-boot-check-no-failures`). After three
+  boots that do not (a hang or emergency mode needs the power button each time) systemd-boot boots
+  the previous image again by itself. `bootc-update` does not stage the failed image again, and it
+  and the waybar indicator (red) report it; the next build that passes its tests replaces it.
 - The registry (`serve/distro-registry.container`, `registry:2`, storage in `/mnt/repo/registry`)
   serves plain HTTP on port 5000; the images list it as insecure in
   `/etc/containers/registries.conf.d/50-distro-builder.conf`. A bootc system follows a recipe with
@@ -140,7 +149,9 @@ First session:
 
 Afterwards, updates are staged by `bootc-update.timer` and shown by the waybar indicator (see
 above), and start on the next boot. The boot menu lists each image as `Arch Linux (<recipe> <tag>)`
-with the previous one as a fallback; `sudo bootc rollback` makes the previous one the default.
+with the previous one as a fallback, which systemd-boot also boots by itself after three failed
+boots of a new image (boot counting, above); `sudo bootc rollback` makes the previous one the
+default.
 
 ## Building and testing on a workstation
 
@@ -234,6 +245,10 @@ the installer ISO (`cow_spacesize=2G`), `bootc/install` downloaded from GitHub:
   server replaces its local snapshots of `~/.gnupg` (`docs/todo.md`).
 - The root is ext4 with fs-verity since 2026-10-18 (the T480 reinstalled), a filesystem upstream's
   CI covers; btrfs, "expected to work but not tested", had worked here but hit a kernel fs-verity
-  bug with compressed extents. No boot counting / automatic rollback yet (`docs/todo.md`).
+  bug with compressed extents.
+- Boot counting since 2026-10-19 (above): composefs bootc has none of its own
+  (`bootc-boot-failure-detection(7)`: "likely to be added in the future"), so the base layer adds
+  systemd-boot's counter to the entry of each update; arkdep's `p14s/update.sh` does the same with
+  `+3`, but marks a boot good once `sysinit.target` is reached (no `check-no-failures`).
 - No in-place migration from arkdep: `install` reinstalls the root partition and keeps a separate
   `/home` partition (the T480 layout); the P14s has `/home` inside its btrfs root.

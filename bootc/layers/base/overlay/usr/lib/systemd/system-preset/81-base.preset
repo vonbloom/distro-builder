@@ -13,6 +13,9 @@ enable remote-fs.target
 enable nftables.service
 # Copies a newer systemd-boot from the image to the ESP at boot (bootctl update): nothing else does
 enable systemd-boot-update.service
+# Boot counting (bootc-boot-count): a boot with a failed unit does not mark a new image good. Runs
+# only on a counted boot (boot-complete.target, pulled in by systemd-bless-boot)
+enable systemd-boot-check-no-failures.service
 
 # Sockets
 enable systemd-userdbd.socket
