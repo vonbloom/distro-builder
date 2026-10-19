@@ -134,6 +134,14 @@ image's `VERSION_ID` (`initrd-release`); now only when a file it holds changes (
       passed both tests in 8 min (the fallback adds ~70 s): its entry counted and marked good after
       the update, latest's entry `+0-3` after three boots, the candidate back, `bootc-update`
       reporting it and not staging it again (`bootc status`: `bootOrder: rollback`).
+- [x] **Hidden boot menu** (2026-10-19): with boot counting the menu is no longer needed to go
+      back, so `bootc/install` writes `timeout 0`, 5 s less on every boot (the T480's loader took
+      12.1 s with the 5 s menu; the rest, to measure after the change, is mostly reading the 17 MB
+      kernel and the 47 MB initramfs from the ESP). Holding Space at power-on shows it, and so does
+      the power menu's *Reinicia al menú d'arrencada* (`systemctl reboot --boot-loader-menu=0`:
+      logind sets `LoaderConfigTimeoutOneShot`, polkit `allow_active`; the T480's systemd-boot
+      reports the feature). `iso/test-install` checks the line. `loader.conf` belongs to the
+      machine: the T480 changed by hand (`bootc/README.md`).
 - [x] The T480 is `degraded` (2026-10-18, `t480:2026-10-11`, up 6 days): `btrbk.service` fails
       (its `snapshot_dir /arkdep/snapshots` does not exist under bootc, bootc/README "Missing
       before real use") and `systemd-networkd-wait-online.service` timed out. Neither is part of

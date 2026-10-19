@@ -341,11 +341,14 @@ else
 fi
 efibootmgr | grep -E '^(BootOrder|Boot[0-9A-F]{4}\* Linux Boot Manager)'
 
-# The boot menu, as the arkdep installer sets it. bootc only writes "timeout 5" when there is no
-# loader.conf, but bootctl install has just written one with every line commented out (no menu):
-# bootc-dev/bootc#2558
+# The boot menu: hidden, the default entry boots at once (timeout 0). Holding Space while the
+# machine starts shows it, and so does the power menu's "Reinicia al menú d'arrencada" (systemctl
+# reboot --boot-loader-menu=0); a new image that does not boot falls back to the previous one by
+# itself (boot counting, bootc-boot-count). The other lines as the arkdep installer sets them.
+# Written here: bootc only writes "timeout 5" when there is no loader.conf, but bootctl install
+# has just written one with every line commented out (bootc-dev/bootc#2558)
 cat >"$TARGET/boot/loader/loader.conf" <<EOF
-timeout 5
+timeout 0
 console-mode max
 editor no
 auto-entries yes

@@ -87,7 +87,7 @@ registry, in one of two ways:
   at `/var/home` untouched.
 
 Either way the root is ext4 with fs-verity, systemd-boot comes first in the firmware boot order
-with a 5 s menu, the swap is enabled with `resume=`, and the user (UID 1000, the arkdep installer's
+with its menu hidden (below), the swap is enabled with `resume=`, and the user (UID 1000, the arkdep installer's
 groups) gets the password asked; root stays locked (sudo). The host comes from the machine model
 (`20Y1` p14s, `20L5`/`20L6` t480) or a menu of the registry's images, the hostname from the image
 (`--hostname` to change it), and Wi-Fi networks joined in the live system are copied. Every
@@ -151,7 +151,13 @@ Afterwards, updates are staged by `bootc-update.timer` and shown by the waybar i
 above), and start on the next boot. The boot menu lists each image as `Arch Linux (<recipe> <tag>)`
 with the previous one as a fallback, which systemd-boot also boots by itself after three failed
 boots of a new image (boot counting, above); `sudo bootc rollback` makes the previous one the
-default.
+default. The menu is hidden (`timeout 0` in `loader.conf`, written by `install`; since 2026-10-19,
+5 s less on every boot): hold Space while the machine starts, or choose *Reinicia al menú
+d'arrencada* in the power menu (`$mod+Shift+e`, `systemctl reboot --boot-loader-menu=0`), which
+shows it once with no timeout. A machine installed before then keeps its `timeout 5` until its
+`loader.conf` is changed by hand:
+`sudo unshare -m sh -c 'mount -o remount,rw /boot && sed -i "s/^timeout .*/timeout 0/" /boot/loader/loader.conf'`
+(the ESP is mounted read-only; the remount only applies inside `unshare`).
 
 ## Building and testing on a workstation
 
@@ -224,7 +230,8 @@ the installer ISO (`cow_spacesize=2G`), `bootc/install` downloaded from GitHub:
   `install` adds or reorders it with `efibootmgr`. Reported: bootc-dev/bootc#2557 (`bootctl --root`
   skips EFI variables unless `--variables=yes`).
 - No boot menu: `bootctl install` writes a `loader.conf` with every line commented out, so bootc's
-  own `timeout 5` (only written when the file is missing) never lands; `install` writes it.
+  own `timeout 5` (only written when the file is missing) never lands; `install` writes its own
+  (with the menu hidden since 2026-10-19, `timeout 0`).
   Reported: bootc-dev/bootc#2558. Every entry was titled "Arch Linux": the titles come from the
   image's os-release.
 - `bootc status` shows no version on composefs for an image with only the

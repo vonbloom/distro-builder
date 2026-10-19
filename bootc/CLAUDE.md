@@ -272,9 +272,13 @@
   `efibootmgr` entry (bootc only installs the `EFI/BOOT` fallback, bootc-dev/bootc#2557). It deletes the ESP's
   `bootc_*.conf` entries (and `EFI/Linux/bootc_composefs-*`) whose root is the reformatted
   partition or gone: they share title and sort key with the new one and the version is a hash, so
-  systemd-boot booted a stale one in a rehearsal. It writes `loader.conf` like the arkdep
-  installer: bootc only writes `timeout 5` when the file is missing, and `bootctl install` has
-  just created it with every line commented out (no menu, bootc-dev/bootc#2558). Rehearsed in a VM
+  systemd-boot booted a stale one in a rehearsal. It writes `loader.conf`: the menu hidden
+  (`timeout 0` since 2026-10-19: boot counting falls back without it; Space held at power-on or
+  the power menu's `systemctl reboot --boot-loader-menu=0` shows it) and the arkdep installer's
+  other lines. bootc only writes `timeout 5` when the file is missing, and `bootctl install` has
+  just created it with every line commented out (bootc-dev/bootc#2558). `loader.conf` belongs to
+  the machine, not the image: a change here reaches installed machines only by hand (`README.md`,
+  boot menu; the ESP is read-only, remounted inside `unshare -m`). Rehearsed in a VM
   booted from the ISO with a T480-like layout (2026-10-08); `iso/test-install` since 2026-10-18.
 - `fs-verity ... FILE CORRUPTED!` in the T480's kernel log (kernel 7.2.9-1-cachyos) is a btrfs
   bug with compressed extents (the root was mounted `compress=zstd:1` by `bootc/install` until

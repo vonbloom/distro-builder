@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 # Session and power menu (rofi), opened by $mod+Shift+e and the waybar power button.
 # Ending the session, rebooting and powering off ask for confirmation. Also switches between the
-# light and dark themes (darkman, like $mod+Shift+t).
+# light and dark themes (darkman, like $mod+Shift+t). The boot menu is hidden (timeout 0 in
+# loader.conf, written by bootc/install): rebooting to it shows it once, with no timeout, through
+# an EFI variable systemd-boot reads (LoaderConfigTimeoutOneShot; logind lets the active session
+# set it without a password).
 
 set -uo pipefail
 
-THEME=󰔎 LOCK=󰌾 LOGOUT=󰍃 SUSPEND=󰤄 HIBERNATE=󰒲 REBOOT=󰜉 POWEROFF=󰐥
+THEME=󰔎 LOCK=󰌾 LOGOUT=󰍃 SUSPEND=󰤄 HIBERNATE=󰒲 REBOOT=󰜉 BOOTMENU=󰍜 POWEROFF=󰐥
 
 menu() { # menu <prompt> <entries...>
 	printf '%s\n' "${@:2}" | rofi -dmenu -i -no-custom -p "$1" -theme-str 'window { width: 320px; }'
@@ -17,11 +20,12 @@ confirm() {
 
 choice=$(menu "Sessió" \
 	"$THEME  Mode clar / fosc" \
-	"$LOCK  Bloqueja" \
+	"$LOCK  Bloca" \
 	"$LOGOUT  Surt de la sessió" \
 	"$SUSPEND  Suspèn" \
 	"$HIBERNATE  Hiberna" \
 	"$REBOOT  Reinicia" \
+	"$BOOTMENU  Reinicia al menú d'arrencada" \
 	"$POWEROFF  Apaga") || exit 0
 
 case $choice in
@@ -31,5 +35,6 @@ case $choice in
 "$SUSPEND"*) systemctl suspend ;;
 "$HIBERNATE"*) systemctl hibernate ;;
 "$REBOOT"*) confirm "Reinicia" && systemctl reboot ;;
+"$BOOTMENU"*) confirm "Reinicia al menú d'arrencada" && systemctl reboot --boot-loader-menu=0 ;;
 "$POWEROFF"*) confirm "Apaga" && systemctl poweroff ;;
 esac

@@ -8,8 +8,8 @@ iso/test-vm) with a serial console, drives it and checks what it installed:
 
 1. Whole disk: `/root/install --disk` on an empty disk, then the installed system is booted and
    checked over SSH: the system running without failed units, the ext4 root with fs-verity, the
-   home partition at /var/home, the swap, hostname, user, `bootc status`, one boot entry, the fsck
-   of the root, systemd-boot-update.
+   home partition at /var/home, the swap, hostname, user, `bootc status`, one boot entry, the
+   hidden boot menu, the fsck of the root, systemd-boot-update.
 2. Keeping the home: a file is left in the home, the ISO reinstalls with --root/--esp/--home/--swap
    on the same disk, and the system must boot with the file still there and one boot entry.
 
@@ -230,6 +230,8 @@ def check_installed(name, key, hostname, extra=()):
         ("bootc status", ssh(key, sudo + "bootc status --format json"),
          r'"image":\s*"192\.168\.2\.50:5000/[^"]+:latest"'),
         ("one boot entry", ssh(key, "ls /boot/loader/entries | wc -l"), r"^1$"),
+        ("hidden boot menu", ssh(key, "grep '^timeout' /boot/loader/loader.conf", check=False),
+         r"^timeout 0$"),
         # e2fsck in the initramfs, logged as systemd-fsck (not --grep: sudo logs the command line)
         ("fsck of the root", ssh(key, sudo + "journalctl -b -t systemd-fsck -o cat", check=False),
          r"^ROOT: clean"),
