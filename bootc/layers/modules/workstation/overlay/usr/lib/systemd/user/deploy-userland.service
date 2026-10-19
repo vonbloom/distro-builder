@@ -1,5 +1,9 @@
 [Unit]
 Description=Userland provisioning
+# The user's dotfiles and boxes, not root's or a system user's: enabled for every user manager
+# (--global preset), it made an SSH login as root (bootc/test) clone the dotfiles and pull the
+# userland image, and the login waited for it (a oneshot that default.target waits for)
+ConditionUser=!@system
 After=network-online.target
 Wants=network-online.target
 

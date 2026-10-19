@@ -18,26 +18,47 @@
   `RestartPreventExitStatus=99`, and `lib/retry-once` exits 99 when `NRestarts` is already 1, so
   `notify-failure@` reports only the retry's failure. `NRestarts` is reset by every start (timer,
   status page, by hand). The retry runs the `git pull` again.
-- `bootc/test <image>` (since 2026-10-18): `podman pull --signature-policy` with the base
-  layer's `policy.json` pointed at `keys/distro-builder-sigstore.pub` (what the clients check: a
-  missing signature or blob fails here), `bootc install to-disk --via-loopback --generic-image`
-  (no firmware boot entry on the build server) onto a sparse 20 GB raw file in `/var/tmp`, with
-  the T480's `rootflags=compress=zstd:1,noatime` and `console=ttyS0
-  systemd.journald.forward_to_console=1`, then QEMU (KVM, q35, Debian's OVMF 4M, no network)
-  until systemd's "Startup finished" (pass) or a line matching `FAILURE`, or `BOOT_TIMEOUT` (fail:
-  the matching lines and the tail go to the journal and so to the notification, the whole serial
-  log to `candidate.log` next to the package lists). The journal on the console also catches
-  failures after the getty has started. Not a failure: "FILE CORRUPTED" (the btrfs fs-verity bug,
-  below). A unit that fails only in a VM gets an exception in `FAILURE`, never removed from the
-  recipe. Needs `/dev/kvm` (VM 202 `cpu: host`, nested KVM on zeus) and `qemu-system-x86` +
-  `ovmf` (homelab "Build server" play). Not tested: hardware drivers, the desktop, and the
-  upgrade from the previous image (the `/etc` merge). First run (2026-10-18, `t480:2026-10-11`):
-  67 s in all (pull, install, boot), "Startup finished in ... = 12.6s". Its serial log has errors
-  that are no unit failures and do not fail the test: systemd-resolved "Failed to open
-  /etc/resolv.conf: Permission denied" (a fresh install only, before tmpfiles links it), and, on
-  the T480 too, `systemd-tmpfiles` "fchmod() of / failed: Read-only file system" and
-  `set-wireless-regdom` exiting 1. Its EXIT trap runs with `set +e`: with `set -e` the second
-  `podman rmi` of an image already removed made a passed test exit 1.
+- `bootc/test [--from <previous>] <image>` (since 2026-10-18, the update test too):
+  `podman pull --signature-policy` with the base layer's `policy.json` pointed at
+  `keys/distro-builder-sigstore.pub` (what the clients check: a missing signature or blob fails
+  here), `bootc install to-disk --via-loopback --generic-image` (no firmware boot entry on the
+  build server) onto a sparse 20 GB raw file in `/var/tmp`, ext4 like `bootc/install`, with
+  `console=ttyS0 systemd.journald.forward_to_console=1` and `--root-ssh-authorized-keys` (a
+  throwaway key), then QEMU (KVM, q35, Debian's OVMF 4M, user networking with SSH forwarded to
+  `127.0.0.1:$SSH_PORT`, 10022). A boot passes when root's SSH answers with a new boot ID and
+  `systemctl is-system-running --wait` says `running`, and no line of the serial log matches
+  `FAILURE` (also during the shutdown of an update), within `BOOT_TIMEOUT`; the end of the boot
+  comes from SSH, not "Startup finished" on the console, whose getty writes terminal resets into
+  the middle of the journal's lines (`iso/test-install` saw one cut). On failure the matching
+  lines and the tail go to the journal and so to the notification, the whole serial log to
+  `candidate.log` (and `candidate-update.log`) next to the package lists.
+  - `bootc/build` runs it twice: the candidate installed new, then `--from <repository>:latest`:
+    the current latest installed and booted, given a machine's state over SSH (`useradd`, the
+    hostname, a line appended to `/etc/issue`, `fw allow 12345`, a file in `/var/lib`), `bootc
+    switch` to the candidate inside the VM (the clients' pull: composefs, the signature, chunkah's
+    layers), `systemctl reboot` in the same QEMU, then: booted digest = the candidate's manifest in
+    the registry, rollback = latest, two boot entries, the local state kept. A host's first image
+    (no latest) gets only the first. `--from` needs signed images: the VM's own policy checks.
+  - A unit that fails only in a VM gets an exception in `FAILURE`, never removed from the image.
+    Needs `/dev/kvm` (VM 202 `cpu: host`, nested KVM on zeus), `qemu-system-x86` + `ovmf`
+    (homelab "Build server" play), ssh and python3. Not tested: hardware drivers, the desktop.
+    Serial log lines that are no unit failures and do not fail it: systemd-resolved "Failed to
+    open /etc/resolv.conf: Permission denied" (a fresh install only, before tmpfiles links it),
+    and, on the T480 too, `systemd-tmpfiles` "fchmod() of / failed: Read-only file system" and
+    `set-wireless-regdom` exiting 1. Its EXIT trap runs with `set +e`: with `set -e` the second
+    `podman rmi` of an image already removed made a passed test exit 1.
+  - The SSH login as root starts root's user manager: `deploy-userland` (a user unit enabled
+    for every user) has `ConditionUser=!@system` since then, or it would clone the dotfiles and
+    pull the userland image for root, and the login would wait for it. The user managers' lines
+    (`systemd[<pid>]` other than 1, `USER_MANAGER`) do not count as failures: in root's,
+    pipewire's `ConditionUser=!root` left wireplumber and filter-chain with "Dependency failed"
+    (the first two test builds, 2026-10-18). No user manager runs for root on a real machine.
+- Promoting a candidate by hand, after reviewing a failed test (`candidate.log`,
+  `candidate-update.log`) and deciding it is the test's fault: from the server's checkout, as
+  root, `. lib/push-image.sh && tag_image <host> candidate <YYYY-MM-DD> latest`, then
+  `mv /mnt/repo/bootc/<host>/candidate.packages /mnt/repo/bootc/<host>/<host>-<YYYY-MM-DD>.pkgs`
+  (the date of the candidate's build: its `org.opencontainers.image.version`). Never for a
+  failure of the image itself: fix it and build again.
 - Build and prune run under `/run/build-image.lock` with the other builds: memory, and the
   registry's `garbage-collect` must never run during a push (it deletes blobs of unfinished
   uploads). prune deletes manifests through the API (`REGISTRY_STORAGE_DELETE_ENABLED`), runs

@@ -99,11 +99,21 @@ image's `VERSION_ID` (`initrd-release`); now only when a file it holds changes (
       Catches what breaks the generic boot (initramfs and dracut modules, composefs setup, `/etc`
       merge of a fresh install, failing units, emergency mode), not hardware specific drivers
       (i915, Wi-Fi) or the desktop.
-- [ ] **Upgrade test**: the T480 never installs from scratch, it upgrades, and the `/etc` 3-way
-      merge (a file changed both in the image and locally) only happens on an upgrade. Install the
-      previous `latest`, boot it, `bootc switch` to the candidate (the VM then needs a network to
-      the registry: QEMU user networking reaches the build server's port 5000), reboot, same
-      checks. About twice the test's time.
+- [x] **Update test** (2026-10-18): `bootc/test --from <repository>:latest <candidate>`, run by
+      `bootc/build` after the install test, both required before `latest` moves. The current latest
+      is installed, given a machine's state over SSH (a user, the hostname, an edit of
+      `/etc/issue`, `fw allow`, a file in `/var`), `bootc switch`ed to the candidate inside the VM
+      (pulled from the registry with the clients' policy) and rebooted; then the candidate's digest
+      must be booted, latest the rollback, two boot entries, the state kept. Both tests now check
+      the boot over SSH (`systemctl is-system-running`, root's throwaway key from `bootc install
+      --root-ssh-authorized-keys`) and ignore the user managers' lines on the console (root's,
+      started by the test's login). Validated with three builds to `test/t480` on the server: the
+      first two failed on root's user manager (wireplumber "Dependency failed": pipewire's
+      `ConditionUser=!root`), now filtered; `deploy-userland` got `ConditionUser=!@system` (it
+      would provision root). The third passed both: install 13.2 s; update from the second build's
+      image, boots 13.2 s then 12.1 s; the build 6 min 40 s in all. Test images deleted from the
+      registry afterwards (`prune` keeps what latest names: the manifests by hand, then the
+      garbage collection).
 - [x] The T480 is `degraded` (2026-10-18, `t480:2026-10-11`, up 6 days): `btrbk.service` fails
       (its `snapshot_dir /arkdep/snapshots` does not exist under bootc, bootc/README "Missing
       before real use") and `systemd-networkd-wait-online.service` timed out. Neither is part of

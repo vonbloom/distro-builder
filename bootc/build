@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# Usage: build <recipe>
-# Build the bootc image of an arkdep recipe (bootc/Containerfile), split it into per-package layers
+# Usage: build <host>
+# Build the bootc image of a host (bootc/layers, bootc/Containerfile), split it into per-package layers
 # with chunkah (an update then downloads only the packages that changed) and push it to the
-# registry as <recipe>:candidate with skopeo, signed. bootc/test boots it in a VM; only then do
-# <recipe>:YYYY-MM-DD and <recipe>:latest, the tag the clients follow, name it, and its package
-# list goes to PKGS_DIR (notify-image, the status page, bootc-update). A failed test leaves latest
-# as it was, the candidate in the registry, its package list in PKGS_DIR/candidate.packages and the
-# serial log in PKGS_DIR/candidate.log.
+# registry as <recipe>:candidate with skopeo, signed. bootc/test installs it in a VM, and updates
+# a VM installed with the current latest to it; only when both boot do <recipe>:YYYY-MM-DD and
+# <recipe>:latest, the tag the clients follow, name it, and its package list goes to PKGS_DIR
+# (notify-image, the status page, bootc-update). A failed test leaves latest as it was, the
+# candidate in the registry, its package list in PKGS_DIR/candidate.packages and the serial logs
+# in PKGS_DIR/candidate.log and candidate-update.log, for review; to publish it anyway once
+# reviewed: bootc/CLAUDE.md, "Promoting a candidate by hand".
 # Local test run: REGISTRY=127.0.0.1:5000 PKGS_DIR=/some/dir AUR_SERVER=... AUR_SIGLEVEL=Never
 # ALLOW_UNSIGNED=1 (and the OVMF paths of bootc/test)
 # Test run on the build server: REPOSITORY=test/<recipe> PKGS_DIR=/some/dir (next to the real
@@ -61,6 +63,15 @@ push_image "$IMAGE" "$REPOSITORY" "$TAG" candidate --label ostree.bootable=1 --l
 # get it. composefs bootc has no boot counting: an image that does not boot would wait on the T480
 # (bootc-update stages it within 4 hours) until the user picks the previous entry by hand
 BOOT_LOG=$PKGS_DIR/candidate.log bootc/test "$REGISTRY/$REPOSITORY:candidate"
+# And as the clients get it: an update from the image latest names now, with a machine's local
+# state (a host's first image has no latest yet)
+if curl -sf -o /dev/null -I -H 'Accept: application/vnd.oci.image.manifest.v1+json' \
+	"http://$REGISTRY/v2/$REPOSITORY/manifests/latest"; then
+	BOOT_LOG=$PKGS_DIR/candidate-update.log bootc/test --from "$REGISTRY/$REPOSITORY:latest" \
+		"$REGISTRY/$REPOSITORY:candidate"
+else
+	echo "No $REPOSITORY:latest yet: no update test"
+fi
 
 tag_image "$REPOSITORY" candidate "$TAG" latest
 mv "$packages" "$PKGS_DIR/$RECIPE-$TAG.pkgs"

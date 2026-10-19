@@ -29,14 +29,17 @@ directory.
   (the compressed layers as chunkah writes them) as `<recipe>:candidate`. An image with more than
   20 % fewer packages than the previous one is not pushed (a stage of the recipe that installed
   nothing).
-- `bootc/test` then pulls the candidate as the clients would (signature checked), installs it on a
-  disk image and boots it in a VM (QEMU, KVM, UEFI, no network). Only when it boots without a
-  failed unit do `<recipe>:YYYY-MM-DD` and `<recipe>:latest`, the tag the bootc systems follow,
+- `bootc/test` then tests the candidate in VMs (QEMU, KVM, UEFI), checked over SSH: installed
+  new (pulled as the clients would, signature checked), and as an update: the current `latest`
+  installed, given a machine's local state (a user, the hostname, an edited file, a port opened
+  with `fw`, a file in `/var`), switched to the candidate with `bootc switch` and rebooted. Only
+  when both boot without a failed unit, the update with the local state kept and the old image as
+  the rollback, do `<recipe>:YYYY-MM-DD` and `<recipe>:latest`, the tag the bootc systems follow,
   name it, and the package list goes to `/mnt/repo/bootc/<recipe>/` for the notification. After a
-  failed test `latest` stays where it was, the candidate stays in the registry, and its serial log
-  is `http://192.168.2.50/bootc/<recipe>/candidate.log`. The test catches what breaks the boot
-  (initramfs, composefs, `/etc`, failing units, emergency mode), not hardware drivers or the
-  desktop.
+  failed test `latest` stays where it was, the candidate stays in the registry for review, and the
+  serial logs are `http://192.168.2.50/bootc/<recipe>/candidate.log` and `candidate-update.log`.
+  The tests catch what breaks the boot or the update (initramfs, composefs, the `/etc` merge,
+  failing units, emergency mode), not hardware drivers or the desktop.
 - A failed build is retried once, half an hour later; only the second failure is notified.
 - Each image is signed with the build server's sigstore key when pushed; the signature lives in
   the registry next to it (`sha256-<digest>.sig`), and the bootc systems refuse an unsigned image
