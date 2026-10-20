@@ -4,7 +4,8 @@
 #        test-vm clean  delete the VM files
 # The VM has an NVMe disk and NAT networking (it reaches the LAN through this host). Its screen is
 # on VNC localhost:5901: `remote-viewer vnc://localhost:5901` (Wayland native, so it can take the
-# compositor shortcuts; Ctrl+Alt releases the keyboard). Run it on any host with KVM and OVMF.
+# compositor shortcuts; Ctrl+Alt releases the keyboard). Run it on any host with KVM and OVMF, or in
+# the userland box (the bootc images have no QEMU).
 
 set -euo pipefail
 
@@ -17,9 +18,12 @@ cd "$DIR"
 
 case ${1:-iso} in
 iso)
-	iso=$(curl -sf "$REPO_URL/iso/sha256sums.txt" | awk '{ print $2 }')
-	[[ -f $iso ]] || curl -fo "$iso" "$REPO_URL/iso/$iso"
-	curl -sf "$REPO_URL/iso/sha256sums.txt" | sha256sum -c
+	sums=$(curl -sf "$REPO_URL/iso/sha256sums.txt")
+	iso=$(awk '{ print $2 }' <<<"$sums")
+	# Fetched again when the cached copy is missing or does not match: an earlier build of the day
+	# has the same name
+	sha256sum -c --status <<<"$sums" 2>/dev/null || curl -fo "$iso" "$REPO_URL/iso/$iso"
+	sha256sum -c <<<"$sums"
 	rm -f disk.qcow2 vars.fd
 	boot=(-cdrom "$iso" -boot d)
 	;;

@@ -7,8 +7,8 @@ hand); `../install` sets the schedules. Implementation notes and pitfalls: `CLAU
 directory.
 
 - `layers/`: what goes into the images, one directory per layer (`docs/layers.md`): `base` (boot,
-  administration, the registry and bootc updates), `modules/laptop` and `modules/workstation`
-  (virtualization, the userland box), `desktop/sway`, and `host/<host>` (hardware, hostname).
+  administration, the registry and bootc updates), `modules/laptop` (power, Wi-Fi, Bluetooth) and
+  `modules/workstation` (the userland box), `desktop/sway`, and `host/<host>` (hardware, hostname).
   Each has a `packages.list` and an `overlay/` (files copied to `/`); a host's `layers.list` names
   the layers of its image in order. Taken from the arkdep recipes on 2026-10-18 (since then
   `image/arkdep-build.d` is frozen: fixes only, for the P14s).

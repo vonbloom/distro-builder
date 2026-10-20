@@ -1,2 +1,3 @@
 enable iwd.service
 enable tlp.service
+enable bluetooth.service

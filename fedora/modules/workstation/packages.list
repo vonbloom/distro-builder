@@ -1,9 +1,3 @@
-# Module "workstation" (docs/layers.md, docs/fedora.md): virtual machines, the userland box, backups
-# and the user's tools. podman is in fedora-bootc.
-# libvirt split as on Arch (Arch: libvirt qemu-base qemu-hw-display-{qxl,virtio-vga,virtio-gpu}
-# qemu-ui-spice-app qemu-audio-spice): the QEMU driver and the default network (dnsmasq), not
-# libvirt-daemon-kvm, which pulls every QEMU device and storage driver
-libvirt-daemon-driver-qemu libvirt-daemon-config-network libvirt-client qemu-kvm-core qemu-img
-qemu-device-display-qxl qemu-device-display-virtio-vga qemu-device-display-virtio-gpu
-qemu-ui-spice-app qemu-audio-spice edk2-ovmf dnsmasq virtiofsd
+# Module "workstation" (docs/layers.md, docs/fedora.md): the userland box, backups and the user's
+# tools. podman is in fedora-bootc. No virtualization since 2026-10-20 (QEMU is in the userland box)
 distrobox btrbk pass stow

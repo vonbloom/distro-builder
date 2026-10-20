@@ -24,6 +24,11 @@ visual-studio-code-bin podman git
 thunar gvfs gvfs-smb adw-gtk-theme
 # remote-viewer: the screen of test VMs (iso/test-vm, VNC or SPICE with sound)
 virt-viewer
+# QEMU for the throwaway test VMs (iso/test-vm, iso/test-install): KVM, OVMF and QEMU's user
+# networking work in the box; the bootc images have no virtualization since 2026-10-20. The
+# virtio-vga module (test-vm's screen) needs the virtio-gpu one, which Arch does not declare:
+# without it QEMU 11.1.2 segfaulted
+qemu-base edk2-ovmf qemu-hw-display-virtio-vga qemu-hw-display-virtio-gpu
 gimp imagemagick
 # imv: image viewer, default for images in the boxes (mimeapps.list); also exported to the host
 imv

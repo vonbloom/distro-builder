@@ -24,8 +24,6 @@ enable sshd.socket
 # Timers
 # Stages the newest image of the booted tag (bootc-update)
 enable bootc-update.timer
-# Monthly scrub of the whole btrfs filesystem (instance "-" is /, any mount point scrubs all of it)
-enable btrfs-scrub@.timer -
 # Weekly TRIM: ext4 (the T480's /home) is mounted without discard
 enable fstrim.timer
 

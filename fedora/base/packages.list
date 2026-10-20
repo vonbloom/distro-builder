@@ -12,10 +12,10 @@ systemd-networkd wireguard-tools
 
 # Shells and tools (Arch: git -> git-core, wget -> wget2-wget). zsh-completions is not packaged in
 # Fedora: the host's zsh keeps zsh's own completions, the userland box has the rest
-zsh tmux git-core fzf tree pv diffutils man-db binutils fastfetch wget2-wget
+zsh tmux git-core fzf tree pv diffutils man-db binutils wget2-wget
 
 # Disks and firmware updates
-smartmontools nvme-cli fwupd udisks2 dosfstools exfatprogs efibootmgr compsize
+smartmontools nvme-cli fwupd udisks2 dosfstools exfatprogs efibootmgr
 
 # Locales: Fedora installs them per language instead of locale-gen (etc/locale.gen)
 glibc-langpack-ca glibc-langpack-es glibc-langpack-en

@@ -5,7 +5,6 @@ linux-cachyos
 dracut
 cpio
 iptables-nft
-btrfs-progs
 zlib-ng-compat
 dbus-broker-units
 apparmor
@@ -16,14 +15,11 @@ podman
 wireguard-tools
 
 # Administration
-arch-install-scripts
 binutils
-compsize
 diffutils
 dosfstools
 efibootmgr
 exfatprogs
-fastfetch
 fwupd
 fzf
 git

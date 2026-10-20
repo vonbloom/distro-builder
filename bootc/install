@@ -35,7 +35,7 @@ REGISTRY=192.168.2.50:5000
 IMAGE='' HOST='' DISK='' ROOT='' ESP='' HOME_PART='' SWAP='' HOSTNAME_NEW='' PASSWORD_FILE=''
 ROOT_SIZE=64G YES=0 KARGS_EXTRA=()
 USER_NAME=roger USER_UID=1000
-GROUPS_EXTRA=wheel,input,video,render,audio,kvm,libvirt
+GROUPS_EXTRA=wheel,input,video,render,audio,kvm
 TARGET=/mnt/bootc-target HOMEMNT=/mnt/bootc-home
 STORAGE_ON_HOME=0 VARTMP_BOUND=0
 

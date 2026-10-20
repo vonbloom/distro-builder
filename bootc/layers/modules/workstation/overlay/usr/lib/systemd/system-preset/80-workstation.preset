@@ -1,2 +1,0 @@
-enable libvirtd.socket
-enable virtlogd.socket

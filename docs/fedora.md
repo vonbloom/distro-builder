@@ -49,7 +49,6 @@ before the release).
 | `wget` | `wget2-wget` |
 | `openssh` | `openssh-server` + `openssh-clients` (base image) |
 | `locale.gen` + `locale-gen` | `glibc-langpack-ca`, `-es`, `-en` |
-| `libvirt`, `qemu-base`, `qemu-hw-display-*` | `libvirt-daemon-driver-qemu`, `libvirt-daemon-config-network`, `libvirt-client`, `qemu-kvm-core`, `qemu-img`, `qemu-device-display-*` |
 | `mesa` | `mesa-dri-drivers` (VA-API drivers included) + `mesa-vulkan-drivers` |
 | `vulkan-intel`, `vulkan-radeon` | `mesa-vulkan-drivers` |
 | `pipewire-pulse` | `pipewire-pulseaudio`; `pactl` from `pulseaudio-utils` |
@@ -103,7 +102,7 @@ The overlays are mostly configuration and carry over. What does not:
   kernel argument go. The base layer's `lsm=landlock,lockdown,yama,integrity,apparmor,bpf`
   (`usr/lib/bootc/kargs.d/10-base.toml`) would leave SELinux out: the Fedora image does not set
   `lsm=`. Files the overlays add get the policy's default labels at build time; to watch: podman
-  volumes (`:Z`), libvirt images outside `/var/lib/libvirt`.
+  volumes (`:Z`).
 - **PAM and nsswitch**: authselect manages them (`/etc/pam.d/system-auth`, `nsswitch.conf` a link
   to `/etc/authselect/`). The overlays' `etc/pam.d/login`, `etc/pam.d/passwd` (Arch's files plus
   `pam_gnome_keyring`) and `etc/nsswitch.conf` must not be copied: they would break the logins.

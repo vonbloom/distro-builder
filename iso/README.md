@@ -59,18 +59,19 @@ line with the laptops (`/arkdep/config`, `/arkdep/templates/systemd-boot`).
 ## Testing in a VM
 
 `iso/test-install [--checkout] [--host HOST] [ISO]` tests the bootc installer unattended (about 15
-minutes, on any machine with KVM, QEMU, OVMF, bsdtar and ssh): it boots the ISO (the newest
-published one by default) with a serial console, installs on an empty 50 GB disk with `--disk`,
-boots the result and checks it over SSH (running without failed units, ext4 root with fs-verity,
-`/var/home`, swap, hostname, user, `bootc status`, one boot entry, the hidden boot menu, the
-root's fsck), then reinstalls keeping the home and checks that a file left there survived. `--checkout` runs the
-checkout's `bootc/install` instead of the ISO's: installer changes can be tested before building
-an ISO. Serial logs and the disk stay in `~/.cache/iso-test/install` when it fails.
+minutes, on any machine with KVM, QEMU, OVMF, bsdtar and ssh, such as the userland box: the bootc
+images have no QEMU): it boots the ISO (the newest published one by default) with a serial console,
+installs on an empty 50 GB disk with `--disk`, boots the result and checks it over SSH (running
+without failed units, ext4 root with fs-verity, `/var/home`, swap, hostname, user, `bootc status`,
+one boot entry, the hidden boot menu, the root's fsck), then reinstalls keeping the home and checks
+that a file left there survived. `--checkout` runs the checkout's `bootc/install` instead of the
+ISO's: installer changes can be tested before building an ISO. Serial logs and the disk stay in
+`~/.cache/iso-test/install` when it fails.
 
 For a look by hand:
 
 `iso/test-vm` boots the published ISO in a throwaway UEFI VM (KVM, OVMF, NVMe disk, NAT network
-that reaches the LAN) on any machine with QEMU:
+that reaches the LAN) on any machine with QEMU (the userland box):
 
 ```sh
 iso/test-vm iso      # download the newest ISO, check it and boot it with an empty disk

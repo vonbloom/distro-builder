@@ -16,8 +16,9 @@ iso/test-vm) with a serial console, drives it and checks what it installed:
 --checkout runs this checkout's bootc/install instead of the ISO's (served to the VM over HTTP),
 to test installer changes before building an ISO; with an ISO without podman the installer then
 installs it (the live system boots with cow_spacesize=2G). Needs KVM, qemu, edk2-ovmf, bsdtar and
-ssh; the VM files (~10 GB) go to ~/.cache/iso-test/install, deleted when the test passes and kept
-for a look when it fails (serial logs: <phase>.log).
+ssh: run it in the userland box (the bootc images have no QEMU). The VM files (~10 GB) go to
+~/.cache/iso-test/install, deleted when the test passes and kept for a look when it fails (serial
+logs: <phase>.log).
 """
 
 import argparse
@@ -59,20 +60,25 @@ def fail(msg):
     sys.exit(1)
 
 
-def published_iso():
-    sums = urllib.request.urlopen(f"{REPO_URL}/iso/sha256sums.txt", timeout=10).read().decode()
-    digest, name = sums.split()[:2]
-    path = os.path.join(CACHE, name)
-    if not os.path.exists(path):
-        log(f"Downloading {name}")
-        urllib.request.urlretrieve(f"{REPO_URL}/iso/{name}", path + ".part")
-        os.rename(path + ".part", path)
+def file_sha256(path):
     h = hashlib.sha256()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(1 << 20), b""):
             h.update(chunk)
-    if h.hexdigest() != digest:
-        fail(f"{path}: sha256 does not match sha256sums.txt")
+    return h.hexdigest()
+
+
+def published_iso():
+    sums = urllib.request.urlopen(f"{REPO_URL}/iso/sha256sums.txt", timeout=10).read().decode()
+    digest, name = sums.split()[:2]
+    path = os.path.join(CACHE, name)
+    # A cached copy that does not match is an earlier build of the day (same name): fetch it again
+    if not os.path.exists(path) or file_sha256(path) != digest:
+        log(f"Downloading {name}")
+        urllib.request.urlretrieve(f"{REPO_URL}/iso/{name}", path + ".part")
+        os.rename(path + ".part", path)
+        if file_sha256(path) != digest:
+            fail(f"{path}: sha256 does not match sha256sums.txt")
     return path
 
 
@@ -226,7 +232,7 @@ def check_installed(name, key, hostname, extra=()):
         ("home partition", ssh(key, "findmnt -no SOURCE /var/home"), r"^/dev/nvme0n1p4$"),
         ("swap partition", ssh(key, "swapon --show=NAME --noheadings"), r"/dev/nvme0n1p2"),
         ("hostname", ssh(key, "cat /etc/hostname"), rf"^{re.escape(hostname)}$"),
-        ("user groups", ssh(key, "id -nG"), r"\bwheel\b.*\blibvirt\b|\blibvirt\b.*\bwheel\b"),
+        ("user groups", ssh(key, "id -nG"), r"\bwheel\b.*\bkvm\b|\bkvm\b.*\bwheel\b"),
         ("bootc status", ssh(key, sudo + "bootc status --format json"),
          r'"image":\s*"192\.168\.2\.50:5000/[^"]+:latest"'),
         ("one boot entry", ssh(key, "ls /boot/loader/entries | wc -l"), r"^1$"),

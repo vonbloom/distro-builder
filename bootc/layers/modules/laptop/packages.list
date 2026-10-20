@@ -3,3 +3,9 @@ iwd
 plymouth
 tlp
 wireless-regdb
+
+# Bluetooth, ready but unused: tlp.conf blocks the radio at startup; `rfkill unblock bluetooth`
+# (no root: /dev/rfkill has uaccess) and bluetoothctl turn it on. Pairings stay in
+# /var/lib/bluetooth
+bluez
+bluez-utils

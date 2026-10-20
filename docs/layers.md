@@ -66,9 +66,9 @@ Where today's `depends/generic` would go:
 
 | Where | What |
 |---|---|
-| base | `base`, dracut, btrfs-progs, openssh, sudo, zsh, tmux, smartmontools, nvme-cli, fwupd, zram, nftables + `fw`, journald, locale, sysctl, the registry's client config + sigstore key |
-| module `laptop` | tlp, iwd + `80-wifi.network`, brightnessctl, wireless-regdb, `sleep.conf` (hibernation), plymouth |
-| module `workstation` | libvirt/qemu/edk2/dnsmasq/virtiofsd (+ `qemu.conf`, networks, `98-ipforward`), distrobox + `userland-update`/`deploy-userland`, btrbk, pass, stow |
+| base | `base`, dracut, openssh, sudo, zsh, tmux, smartmontools, nvme-cli, fwupd, zram, nftables + `fw`, journald, locale, sysctl, the registry's client config + sigstore key |
+| module `laptop` | tlp, iwd + `80-wifi.network`, brightnessctl, wireless-regdb, `sleep.conf` (hibernation), plymouth, bluez (ready, radio off at startup) |
+| module `workstation` | distrobox + `userland-update`/`deploy-userland`, pass, stow. btrbk left on 2026-10-18; libvirt on 2026-10-20, with QEMU moved to the userland box (the test VMs) |
 | gone with bootc | arkdep, arkane-keyring, nss-altfiles |
 
 Example of why the split matters: in the base, `deploy-userland` would pull the 1.6 GB userland
