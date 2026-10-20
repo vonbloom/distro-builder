@@ -433,12 +433,67 @@ Upstream issues with a local workaround, to drop when they are fixed in a bootc 
         `loader.conf` and no entry. With `--generic-image` (`--no-variables`) the #2558 commit
         works: `loader.conf` is `timeout 5` + `#console-mode keep` (no final newline) and the menu
         counts down from 5 s. The fedora-44 CI failures fit the same cause (systemd >= 258 there,
-        CentOS 10's 257 never gets the flag), not checked (logs need a login). Not yet reported
-        on the PR.
-      - Our `loader.conf` stays anyway (our settings, like the arkdep installer's): only its #2558
-        comment goes. The `efibootmgr` step stays until bootc creates the entry in a way that works
-        in a container: `efibootmgr --create` works in the same container once efivarfs is mounted
-        there (checked; bootc mounts it itself).
+        CentOS 10's 257 never gets the flag), not checked (logs need a login). Reported on the PR
+        the same day.
+      - The PR thread: on 2026-10-16 cgwalters suggested mounting efivarfs read-write under
+        `podman run` and turned the PR into a draft. Our answer (2026-10-17): it was mounted rw
+        already; the check is systemd's container detection (`is_efi_boot()` is false when
+        `detect_container() > 0`); `efibootmgr` could create the entry, best effort (bootcrew's
+        Arch image has none); the timeout commit could land on its own. On 2026-10-19
+        Johan-Liebert1 did not want bootc to manage the firmware entry itself (taken to the
+        maintainers' Monday meeting). cgwalters proposed three ways out: `env container=""`, a
+        `bootctl install --variables=always`, or bootctl taking writable efivarfs in the host PID
+        namespace as "not a container". His agent (cgwalters-bot, cgwalters-forge/tracker#709)
+        works on it. `container=""` does not help: systemd reads it only in PID 1 (`virt.c`, same
+        as v262), and here the detection comes from podman's `/run/.containerenv`, a bind mount
+        checked before the PID namespace. `systemd-detect-virt --container` in
+        `podman run --pid=host` says `podman` with or without it. cgwalters' agent reached the
+        same conclusions from the code, without a VM (in his tracker, not on the PR). Answered
+        on 2026-10-20 (issuecomment-6290651271):
+        - the `--variables=yes` idea was ours;
+        - the `container=""` test;
+        - bootupd needs shim, so #2512 doesn't cover shim-less images;
+        - `--graceful` is no way out;
+        - preferred fix: an explicit bootctl option (e.g. `--variables=always`) that bootc passes
+          gated on the systemd version, since it serves every image;
+        - meanwhile the old skip plus a warning;
+        - we offered to test.
+
+        Also noted on #2557 the same day that its suggestion fails from a container.
+        The other two are systemd changes and need a systemd release, so the `efibootmgr` step
+        stays for a while. `--graceful` is no way out for bootc. For `bootctl install` it only
+        counts when the chroot detection forces it (`bootctl-install.c` L144-145), and bootc
+        turns that off on purpose (`SYSTEMD_IN_CHROOT=0`, #2486: graceful let a failed install
+        exit 0). Checked 2026-10-20 in the ISO VM, bootctl run as bootc runs it in the
+        container: `--variables=yes --graceful` fails the same way, without `--variables` it
+        skips them (rc 0). Best effort in bootc means not passing `--variables=yes` where it
+        cannot work, as before the PR.
+      - bootupd, Fedora's way to the entry, is not one for us. bootc hands GRUB to bootupd,
+        which runs `efibootmgr`, and the draft bootc-dev/bootc#2512 would hand it systemd-boot
+        too (bootupd >= 0.3.0). But bootupd only installs systemd-boot behind shim and points the
+        entry at `shimx64.efi`. Tested 2026-10-20 in the ISO VM (disk overlay and a copy of the
+        EFI variables, nothing kept). Setup: bootupd 0.3.2 built here, the 2026-10-15
+        `test/t480` image with systemd-boot copied to `/usr/lib/efi/systemd-boot/262/EFI/systemd`,
+        `bootupctl backend install --bootloader systemd --component EFI --device /dev/nvme0n1` in
+        `podman run --privileged --pid=host`. Without shim it fails with or without
+        `--update-firmware` ("Failed to find shimx64.efi in the image": `src/bootupd.rs`
+        L278-283 looks the vendor up from shim). With a dummy `shimx64.efi` it creates
+        `Arch Linux` -> `\EFI\arch\shimx64.efi`, first in BootOrder, from the container. #2512
+        keeps the bare `bootctl` for shim-less images, so the bootctl fix is the one that counts
+        here. Arch does have shim: `shim` in `extra` (unsigned, in `/usr/share/shim`, to sign
+        yourself) and Fedora's Microsoft-signed one in the AUR (`shim-signed`). It is only worth
+        it if Secure Boot goes the shim + MOK way (systemd-boot as `grubx64.efi`, MOK enrolled on
+        every machine, firmware keys untouched) instead of our own keys in the firmware (Sealed
+        images): then bootupd would also bring the entry and the systemd-boot updates. An `arch-bootc` package with an `efibootmgr` step would not help either:
+        `bootc install` runs nothing from the image afterwards (no hooks), so `bootc/install`
+        would still have to call it.
+      - Our `loader.conf` stays anyway: it carries our settings, like the arkdep installer's, and
+        since 2026-10-19 `timeout 0` (the menu hidden, boot counting goes back by itself), so it
+        overwrites bootc's `timeout 5`. Only its #2558 comment goes. The `efibootmgr` step stays
+        until bootc creates the entry in a way that works in a container. Both `bootc/install`
+        modes run `bootc install to-filesystem` in `podman run --pid=host`. `efibootmgr --create`
+        works in the same container once efivarfs is mounted there (checked; bootc mounts it
+        itself).
       - Next: the release that includes a working fix, `pkgver` of `aur/local/bootc`, a rebuilt
         image, then a rehearsal in the ISO VM. Test setup kept in `~/.cache/bootc-rehearsal`
         (`podman-scratch.qcow2` holds podman's storage on a second disk instead of a 12G tmpfs,
@@ -451,15 +506,36 @@ Upstream issues with a local workaround, to drop when they are fixed in a bootc 
       annotation.
       - Answered by bootc-dev/bootc#2570 (mvanhorn, 2026-10-15, "Closes #2227"): composefs status
         keeps the manifest annotation and falls back to `version_for_config()` (the
-        `org.opencontainers.image.version` label, then `version`), as we proposed. Not reviewed
-        on 2026-10-16 (jeckersb requested); CI red in nearly every job, as for the other PRs of
-        that day, so probably not this change. It does not touch the `created` lookups listed in
+        `org.opencontainers.image.version` label, then `version`), as we proposed. Approved by
+        cgwalters on 2026-10-16, not merged on 2026-10-19. CI was red in nearly every job, as
+        for the other PRs of that day, so probably not because of this change. It does not touch the `created` lookups listed in
         the issue (`status.rs`, `aleph.rs`).
       - Once released: the label alone gives the version, so the annotation in `bootc/build` is
         no longer needed (harmless: chunkah writes it anyway) and the creation date fallback of
         `bootc-update` only matters for images without the label.
 - [ ] AUR `bootc` without the `selinux` feature (reported in the AUR comments): `aur/local/bootc`
       while the AUR package links libselinux.
+- [ ] ESP mounted read-only by bootc (`systemd.mount-extra=...:/boot:auto:ro`), which breaks
+      systemd-boot's own units (none reported yet): `systemd-boot-random-seed` is masked, and
+      `systemd-boot-update` and `systemd-bless-boot` remount it read-write in their own process
+      (`bootc/CLAUDE.md`). Not ours alone: any composefs + systemd-boot system that uses them.
+
+## bootcrew upstream
+
+Nothing here depends on them (bootc is built in `[aur]`, the Containerfile is ours): reports for
+other users of the Arch image.
+
+- [ ] bootcrew/mono#24 (2026-10-17): their Arch image has failed to build since 2026-09-03. bootc
+      links libselinux since bootc-dev/bootc@c3241ab77 (2026-09-02), and Arch's repositories don't
+      have it. Checked by building `arch/Containerfile` here: it fails on `selinux/selinux.h`, and
+      with `CARGO_OPTIONS='--no-default-features --features "install-to-disk pre-6.15"'` in
+      `shared/build.sh` it builds and passes `bootc container lint`. `build.sh` is shared by every
+      image, so the issue suggests the option for Arch only. Ubuntu has failed since the same day
+      (not checked).
+- [ ] Comment on bootcrew/mono#23 (2026-10-17, DNS, #22): `L` does not replace an existing
+      `/etc/resolv.conf` either, `L+` does. On Arch the image has none, and systemd's own
+      `systemd-resolve.conf` already has the link.
+      - No answer to either on 2026-10-19.
 
 ## arkdep upstream
 
