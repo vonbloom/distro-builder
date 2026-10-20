@@ -21,6 +21,8 @@ xdg-desktop-portal-wlr
 xorg-xwayland
 grim
 slurp
+# Types into the focused window (secret-menu): the virtual keyboard protocol
+wtype
 darkman
 adw-gtk-theme
 # Secret Service for Brave and VS Code (userland box), unlocked at login (pam.d/login)

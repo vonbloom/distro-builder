@@ -49,6 +49,8 @@ function describe(c,   m) {
 	if (c ~ /^exec darkman toggle/) return "Canvia entre el mode clar i el fosc"
 	if (c ~ /^exec keys-menu/) return "Aquesta llista de dreceres"
 	if (c ~ /^exec wallpaper-menu/) return "Tria el fons de pantalla"
+	if (c ~ /^exec secret-menu/) return "Escriu o copia una contrasenya (pass)"
+	if (c ~ /^exec secret-save/) return "Desa una contrasenya nova (pass)"
 	if (c ~ /^focus (left|right|up|down)$/) return "Mou el focus " where(substr(c, 7))
 	if (c ~ /^move (left|right|up|down)$/) return "Mou la finestra " where(substr(c, 6))
 	if (c ~ /^workspace number [0-9]+$/) return "Ves a l’escriptori"

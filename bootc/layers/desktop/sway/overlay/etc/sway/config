@@ -107,6 +107,9 @@ bindswitch --reload --locked lid:off output eDP-1 enable
     bindsym $mod+Shift+t exec darkman toggle
     # List of all these key bindings (rofi), read from this config
     bindsym $mod+F1 exec keys-menu
+    # Passwords (pass, rofi): type or copy one into the focused window, save a new one
+    bindsym $mod+p exec secret-menu
+    bindsym $mod+Shift+p exec secret-save
 #
 # Moving around:
 #
