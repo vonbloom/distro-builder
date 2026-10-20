@@ -7,7 +7,9 @@ if test ! -d "$DOT_DIR"; then
     echo "Cloning dotfiles..."
     git clone "$REPO_URL" "$DOT_DIR"
     cd "$DOT_DIR" || exit 1
-    git remote set-url origin git@github.com:"$REPO"
+    # Pulls stay on HTTPS (a public repo: no key, also in SSH sessions without the agent);
+    # pushes go over SSH with the key
+    git remote set-url --push origin git@github.com:"$REPO"
     [ -f install ] && ./install
 fi
 
