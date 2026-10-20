@@ -109,7 +109,7 @@ Install:
    ```sh
    curl -O http://192.168.2.50/iso/sha256sums.txt -O http://192.168.2.50/iso/sha256sums.txt.sig
    iso=$(awk '{ print $2 }' sha256sums.txt); curl -O "http://192.168.2.50/iso/$iso"
-   gpg --dearmor < ~/distro-builder/keys/distro-builder.asc > distro-builder.gpg
+   gpg --dearmor < ~/Projectes/distro-builder/keys/distro-builder.asc > distro-builder.gpg
    gpgv --keyring ./distro-builder.gpg sha256sums.txt.sig sha256sums.txt && sha256sum -c sha256sums.txt
    lsblk -d -o NAME,SIZE,TRAN,MODEL
    sudo dd if="$iso" of=/dev/sdX bs=4M oflag=direct conv=fsync status=progress
