@@ -175,10 +175,12 @@ What the layers set up for the user (the arkdep images have the same):
 
 - Logging in on tty1 starts sway (`/etc/zsh/zlogin`; a `~/.config/zsh/.zlogin` turns it off) and
   unlocks gnome-keyring, the Secret Service Brave and VS Code use from the userland box.
-- The file dialogs, also those of Brave and the other apps of the userland box, open SMB shares:
-  *Altres ubicacions*, then `smb://<host>/<share>` (the password can be kept in the keyring). A
-  line `smb://<host>/<share>/<folder> <name>` in `~/.config/gtk-3.0/bookmarks` puts a folder in
-  their side pane, and a download saved there goes straight to the share.
+- Thunar opens SMB shares (`smb://<host>/<share>`, the password kept in the keyring), and a
+  `smb://<host>/<share>/<folder> <name>` line in `~/.config/gtk-3.0/bookmarks` adds one to its side
+  pane. The file dialogs of the other apps (Brave's is xdg-desktop-portal-gtk's, on the host) are
+  local-only: no *Connecta al servidor*, and `smb://` bookmarks stay hidden. They reach a share
+  only once Thunar has mounted it, under *Altres ubicacions*. A local folder synced to the share
+  (Syncthing) is the way to save into one straight from a file dialog.
 - `$mod+F1` lists the shortcuts of the running sway config. `$mod+Shift+e`, or waybar's power
   button, opens the power menu: lock, log out, suspend, hibernate, reboot (also to the boot
   menu), power off and the light/dark switch, which `$mod+Shift+t` toggles too.

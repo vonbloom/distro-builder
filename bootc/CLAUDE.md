@@ -381,15 +381,21 @@ Sway layer (`layers/desktop/sway`):
   gcr-4 also brings `gcr-ssh-agent`, which sets `SSH_AUTH_SOCK` for the systemd user manager: the
   user preset disables it (and openssh's `ssh-agent.socket`), SSH keys are gpg-agent's. The user
   preset has no `disable *`, so every packaged user unit with an `[Install]` section is enabled.
-- **gvfs** (sway layer, since 2026-10-21; in the userland box before): the file dialog of Brave
-  and the other box apps is xdg-desktop-portal-gtk's, on the host, and its GIO sees `smb://` only
-  through the host's gvfs (a download could not be saved to a share). The portal returns a
-  remote file as its FUSE path (`/run/user/<uid>/gvfs/smb-share:...`, GTK3's local-only chooser),
-  which the boxes see because the host's gvfsd-fuse mounts it and `/run/user/<uid>` is `rslave` in
-  them; a gvfsd started in a box (the old `org.gtk.vfs.Daemon.service`) mounted it in the box's
-  namespace only. Thunar in the box keeps `gvfs` (GIO's client module) and talks to the host's
-  daemon over the session bus. gvfs adds ~11 MB of packages (smbclient the most) and no user unit
-  with an `[Install]` section (all D-Bus activated).
+- **gvfs** (sway layer, since 2026-10-21; in the userland box before): GIO reaches `smb://` only
+  where a gvfs daemon runs, so it went to the host, where the file dialogs are. The host's
+  gvfsd-fuse mounts shares under `/run/user/<uid>/gvfs/smb-share:...`, which the boxes see because
+  `/run/user/<uid>` is `rslave` in them; a gvfsd started in a box (the old
+  `org.gtk.vfs.Daemon.service`) mounted it in the box's namespace only. Thunar in the box keeps
+  `gvfs` (GIO's client module) and talks to the host's daemon over the session bus, so it still
+  opens `smb://` and mounts shares. gvfs adds ~11 MB of packages (smbclient the most) and no user
+  unit with an `[Install]` section (all D-Bus activated).
+  This does not reach the goal it was moved for (saving a browser download straight into a share):
+  Brave's save dialog is xdg-desktop-portal-gtk's (1.15.3), which never sets the GtkFileChooser's
+  `local-only` FALSE (GTK3 defaults it TRUE), so it has no *Connecta al servidor* and hides every
+  non-native (`smb://`) bookmark. A share appears in it (native FUSE path, under *Altres
+  ubicacions*) only once Thunar has mounted it. Kept anyway: Thunar is unchanged and any file
+  dialog can then browse a mounted share; a Syncthing outbox is the clean one-click save into a
+  share (homelab `docs/`).
 - **Podman storage** (`podman-cleanup.timer`, user, monthly, sway layer): removes images unused by
   any container for 30 days and old VS Code server versions in the dev containers' shared `vscode`
   volume (VS Code adds one per update and never removes them: 10 versions, 6 GB in 2026-10), and all
