@@ -331,11 +331,15 @@ Workstation module:
   `distrobox assemble create --replace --name userland`; it asks before replacing a running box
   (its apps close) unless `--yes`, copies the image's D-Bus services to
   `~/.local/share/dbus-1/services` (plain files: the dotfiles' former links there are replaced, not
-  written through) and removes the previous image. Once userland is replaced it runs
-  `userland-update-status refresh` (sway layer, when present), so the waybar notice goes whether
-  the update ran from the module's click or from a terminal (it stayed until the hourly check when
-  only the click refreshed it, 2026-10-16). `--dry-run` shows what would change; an older
-  tag as argument goes back to it. `playground` keeps its image and its experiments until
+  written through) and removes the previous image. It also removes the services there that start
+  something in userland (`Exec=/usr/bin/distrobox enter userland ...`) and the image no longer
+  ships, and syncs them on every run, not only when it replaces the box: gvfs moved to the host
+  images (sway layer, below), and a box updated before the host image kept the old
+  `org.gtk.vfs.Daemon.service`, which wins over the host's (`$XDG_DATA_HOME` comes first). Once
+  userland is replaced it runs `userland-update-status refresh` (sway layer, when present), so
+  the waybar notice goes whether the update ran from the module's click or from a terminal (it
+  stayed until the hourly check when only the click refreshed it, 2026-10-16). `--dry-run` shows
+  what would change; an older tag as argument goes back to it. `playground` keeps its image and its experiments until
   `userland-update --playground`, which moves it to userland's image and reinstalls the packages
   added in it (`pacman -Qqe` of the box minus `pacman -Qq` of the image, then `pacman -Syu
   --needed`). The lock is `flock -o` on a re-exec: a lock descriptor inherited by the boxes'
@@ -377,6 +381,15 @@ Sway layer (`layers/desktop/sway`):
   gcr-4 also brings `gcr-ssh-agent`, which sets `SSH_AUTH_SOCK` for the systemd user manager: the
   user preset disables it (and openssh's `ssh-agent.socket`), SSH keys are gpg-agent's. The user
   preset has no `disable *`, so every packaged user unit with an `[Install]` section is enabled.
+- **gvfs** (sway layer, since 2026-10-21; in the userland box before): the file dialog of Brave
+  and the other box apps is xdg-desktop-portal-gtk's, on the host, and its GIO sees `smb://` only
+  through the host's gvfs (a download could not be saved to a share). The portal returns a
+  remote file as its FUSE path (`/run/user/<uid>/gvfs/smb-share:...`, GTK3's local-only chooser),
+  which the boxes see because the host's gvfsd-fuse mounts it and `/run/user/<uid>` is `rslave` in
+  them; a gvfsd started in a box (the old `org.gtk.vfs.Daemon.service`) mounted it in the box's
+  namespace only. Thunar in the box keeps `gvfs` (GIO's client module) and talks to the host's
+  daemon over the session bus. gvfs adds ~11 MB of packages (smbclient the most) and no user unit
+  with an `[Install]` section (all D-Bus activated).
 - **Podman storage** (`podman-cleanup.timer`, user, monthly, sway layer): removes images unused by
   any container for 30 days and old VS Code server versions in the dev containers' shared `vscode`
   volume (VS Code adds one per update and never removes them: 10 versions, 6 GB in 2026-10), and all

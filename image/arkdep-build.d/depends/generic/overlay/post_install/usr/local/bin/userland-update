@@ -6,8 +6,9 @@
 # run distrobox assemble with it, pinned to the digest just pulled, so that packages, exports and
 # settings all come from the same image. The box is replaced, not upgraded: what was installed in
 # it by hand goes (try packages in playground, then add them to userland/packages.list). Also
-# installs the image's D-Bus services (gvfs and xfconf, started in userland) in
-# ~/.local/share/dbus-1/services, and creates playground if it is missing.
+# installs the image's D-Bus services (xfconf, started in userland) in
+# ~/.local/share/dbus-1/services, removes those of earlier images that it no longer ships, and
+# creates playground if it is missing.
 # --playground moves playground to the image userland runs and installs again the packages added
 # in it (explicitly installed, not in the image): the experiments stay on top of the same
 # environment. Other changes made in it (files edited by hand) go.
@@ -77,6 +78,30 @@ read_manifest() {
 	run_image tar -C /usr/share/userland/dbus-1/services -cf - . | tar -C "$work/dbus" -xf - --no-same-owner
 }
 
+# The services of $work/dbus in ~/.local/share/dbus-1/services, as plain files (also over the
+# dotfiles' former links, not written through them). Those that start something in userland and
+# the image no longer ships go: a stale one would keep taking the bus name from the host's own
+# service (gvfs, which moved to the host images)
+install_services() {
+	local services=$HOME/.local/share/dbus-1/services f dest changed=0
+	mkdir -p "$services"
+	for f in "$work"/dbus/*.service; do
+		[[ -e $f ]] || continue
+		dest=$services/${f##*/}
+		cmp -s "$f" "$dest" && [[ ! -L $dest ]] && continue
+		rm -f "$dest"
+		install -m 644 "$f" "$dest"
+		changed=1
+	done
+	for dest in "$services"/*.service; do
+		[[ -e $work/dbus/${dest##*/} ]] && continue
+		grep -qs '^Exec=/usr/bin/distrobox enter userland ' "$dest" || continue
+		rm -f "$dest"
+		changed=1
+	done
+	((changed)) && busctl --user call org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus ReloadConfig >/dev/null 2>&1 || true
+}
+
 if ((playground)); then
 	# The image userland runs (its digest: the tag may have moved since), or the newest one
 	target=$(box_image userland)
@@ -126,24 +151,18 @@ else
 		# the manifest lists
 		distrobox assemble create --replace --file "$work/distrobox.ini" --name userland
 
-		# Plain files, also over the dotfiles' former links (not written through them)
-		services=$HOME/.local/share/dbus-1/services
-		mkdir -p "$services"
-		changed=0
-		for f in "$work"/dbus/*.service; do
-			dest=$services/${f##*/}
-			cmp -s "$f" "$dest" && [[ ! -L $dest ]] && continue
-			rm -f "$dest"
-			install -m 644 "$f" "$dest"
-			changed=1
-		done
-		((changed)) && busctl --user call org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus ReloadConfig >/dev/null 2>&1 || true
-
 		# The waybar module of the sway layer hides its notice now, wherever the update was run from
 		if command -v userland-update-status >/dev/null; then
 			userland-update-status refresh >/dev/null 2>&1 || true
 		fi
 	fi
+fi
+
+# Also when userland already ran the image: a new host image can change which services belong
+# where, after the box was updated
+if ((!dry)); then
+	[[ -f $work/distrobox.ini ]] || read_manifest "$pinned"
+	install_services
 fi
 
 if ! podman container exists playground; then

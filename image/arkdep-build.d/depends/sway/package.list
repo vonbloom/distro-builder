@@ -23,5 +23,9 @@ grim
 slurp
 darkman
 adw-gtk-theme
+# gvfs for the file chooser of the userland apps, which is xdg-desktop-portal-gtk's on the host:
+# smb:// and the other remote locations, mounted under /run/user/<uid>/gvfs where the boxes see them
+gvfs
+gvfs-smb
 # Secret Service for Brave and VS Code (userland box), unlocked at login (pam.d/login)
 gnome-keyring

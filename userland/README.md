@@ -11,7 +11,7 @@ go back to.
 | `Containerfile` | Arch (`archlinux/archlinux:latest`) with `[cachyos]` and `[aur]`, the packages, the boxes' setup |
 | `packages.list` | the packages, with what each group is for |
 | `distrobox.ini` | the boxes for `distrobox assemble`: `[playground]` (image, volume, flags) and `[userland]` (plus the apps and commands exported to the host) |
-| `dbus-1/services/` | D-Bus services the host's session bus starts in the box (gvfs, xfconf) |
+| `dbus-1/services/` | D-Bus services the host's session bus starts in the box (xfconf) |
 | `mimeapps.list` | default applications in the boxes (`/etc/xdg/mimeapps.list`: xdg-open, Thunar): images in imv |
 | `build` | builds the image and pushes it to the registry |
 
@@ -41,9 +41,11 @@ image" notification with the changes since the previous one.
 
 `userland-update` (in the host images) pulls `userland:latest`, reads its `distrobox.ini`, pins it
 to the digest it pulled and recreates `userland` with it (`distrobox assemble create --replace`),
-then installs the D-Bus services and removes the previous image. It does nothing when userland
-already runs that image, asks before replacing a running box (the apps opened from it close;
-`--yes` skips the question), and `--dry-run` only shows what it would do.
+then installs the D-Bus services (and removes those an earlier image installed and this one no
+longer ships) and removes the previous image. It leaves the box alone when userland already runs
+that image (the D-Bus services are still brought in line with it), asks before replacing a
+running box (the apps opened from it close; `--yes` skips the question), and `--dry-run` only
+shows what it would do.
 `userland-update <server>:5000/userland:<date>` goes back to an older image (the registry keeps
 four). On a new machine `deploy-userland` runs it at the first login. The host images trust the
 registry and require its signature (the base layer `bootc/layers/base`, the generic overlay of
