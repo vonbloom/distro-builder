@@ -7,6 +7,14 @@ arkdep images of the host OS. An image is a `.tar.zst` with btrfs send streams o
 root filesystem and of `/etc` and `/var`, plus an update script. Laptops pull them with
 `arkdep deploy` and boot the new deployment; the previous one stays as a fallback.
 
+The files of `<name>.tar.zst` are `<name>-rootfs.img`, `<name>-etc.img`, `<name>-var.img` and
+`<name>-update.sh`. To list what an image holds, without root (paths appear as
+`rename ... dest=./rootfs/<path>`):
+
+```sh
+curl -s URL | zstd -dc | tar -xOf - ./<name>-rootfs.img | btrfs receive --dump
+```
+
 ## Recipes
 
 ```
@@ -82,6 +90,10 @@ distrobox: every hour it compares the digest of `userland:latest` in the registr
 the box runs (no pull), shows 󰆧 and the number of new or updated packages when they differ, and
 nothing otherwise or away from home. A click runs `userland-update` in a terminal, which asks
 before replacing the running box; `userland-update-status refresh` checks again now.
+
+The session (shortcuts, light and dark, idle and lid) is the same as on the bootc images:
+[bootc/README.md](../bootc/README.md#the-session). The journal's 1 GiB cap applies to each
+deployment, which keeps its own `/var/log/journal`.
 
 ## Firewall
 

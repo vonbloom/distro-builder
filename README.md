@@ -22,17 +22,41 @@ pitfalls already hit; [`serve/README.md`](serve/README.md) covers the web server
 and the registry.
 
 ```
-image/    arkdep recipes (arkdep-build.d/, frozen: fixes only), build, prune, notify-image
-bootc/    layers/ (what the bootc images hold), Containerfile, apply-layers, build, test, prune, install
-userland/ Containerfile, packages.list and distrobox.ini (the userland distrobox image), build
-aur/      packages.list, local/ (own PKGBUILDs), aur-build.sh, build
-iso/      installer ISO: Containerfile, build, test-vm, test-install, airootfs/ (install-arkdep, arkdep.config)
-serve/    web server (nginx quadlet): /mnt/repo and the status page (web/, status-gen, build-trigger);
-          container registry (quadlet) for the bootc and userland images
-systemd/  build units and timers, distro-status (page data), distro-trigger (manual builds)
-lib/      builder.sh, sign.sh, push-image.sh: shared by the build scripts
+image/    arkdep image recipes (arkdep-build.d/, frozen since 2026-10-18: fixes only, for the P14s
+          until it runs bootc), build, prune, notify-image
+bootc/    the bootc host images: layers/ (base, modules/, desktop/, host/<host>: a packages.list
+          and an overlay/ each, a host's layers.list), Containerfile, apply-layers, build (push to
+          the registry as candidate, boot test, then latest), test (the boot test in a VM), prune,
+          install (from the ISO)
+userland/ the userland distrobox image: Containerfile, packages.list, distrobox.ini (the box
+          manifest, carried by the image), dbus-1/, build; prune is bootc/prune
+aur/      packages.list (AUR packages) and local/ (own PKGBUILDs), built into the [aur] repository
+          by build and aur-build.sh
+iso/      installer ISO (Containerfile, build): Arch releng profile + podman + bootc/install as
+          /root/install, and arkdep + airootfs/root/ (install-arkdep, arkdep.config); test-vm
+          (by hand), test-install (unattended, both modes)
+serve/    nginx quadlet serving /mnt/repo (/<recipe>/, /aur/, /iso/) and the status page at /
+          (web/index.html; status-gen writes /run/distro-status, served at /status/;
+          build-trigger starts builds: POST /api/build/<unit>, polkit rule distro-trigger.rules);
+          distro-registry.container: registry:2 on port 5000 (plain HTTP), storage
+          /mnt/repo/registry (bootc and userland images)
+systemd/  build-image@.{service,timer}, build-bootc@.{service,timer}, build-aur.{service,timer},
+          build-userland.{service,timer}, build-iso.service, distro-status.{service,timer} (the
+          status page's data, every minute), distro-trigger.{socket,service} (manual builds)
+lib/      builder.sh (ensure_builder: rebuild a podman builder image when older than 7 days),
+          sign.sh (detached GPG signatures with the server key), push-image.sh (chunkah + signed
+          skopeo push to the registry, tag_image: bootc and userland images), retry-once (a build
+          unit's single retry, build-bootc@)
+keys/     distro-builder.asc: public signing key, trusted by arkdep, pacman and the installer;
+          distro-builder-sigstore.pub: public key of the bootc image signatures;
+          cachyos.asc: the CachyOS repositories' key (bootc images)
+docs/     todo.md: pending improvements; layers.md: prospect of layered bootc images (base,
+          desktop, host) for every machine, a thin client included; fedora.md: trial of the host
+          images on fedora-bootc, translation of the recipes
+fedora/   package lists of the Fedora trial per layer (base, modules/, desktop/, host/):
+          packages.list, remove.list (docs/fedora.md)
 ci/       check: static checks, run by GitHub Actions (.github/workflows/check.yml) on every push
-install   sets up the build server
+install   sets up the build server (below)
 ```
 
 ## Checks

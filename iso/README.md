@@ -35,7 +35,7 @@ bootc: `/root/install`, see [Installing a bootc image](../bootc/README.md#instal
    - **Network**: if the server is not reachable, the Wi-Fi networks are listed; type the SSID and
      the passphrase. Networks joined here are copied to the installed system.
    - **Recipe**: detected from the machine model (`20Y1*` p14s, `20L5*`/`20L6*` t480); otherwise
-     pick one from the recipes found in the repository.
+     pick one from the recipes the server lists (`/status/recipes.txt`).
    - **Disk**: the whole disk is wiped; type `yes` to confirm.
    - **Password**: the same for `root` and `roger`.
 4. Reboot and remove the USB stick.
@@ -54,7 +54,8 @@ What the installer does:
 
 `iso/airootfs/root/arkdep.config` and `iso/airootfs/root/systemd-boot.template` are the reference
 `/arkdep/config` and boot entry template (title, kernel options) for new installs; keep them in
-line with the laptops (`/arkdep/config`, `/arkdep/templates/systemd-boot`).
+line with the laptops (`/arkdep/config`, `/arkdep/templates/systemd-boot`). Installed laptops keep
+their own copies: a change to these files only reaches new installs.
 
 ## Testing in a VM
 

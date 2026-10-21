@@ -1,71 +1,24 @@
 # distro-builder
 
-Everything that builds and distributes a CachyOS/Arch-based personal distro on
-[arkdep](https://github.com/arkanelinux/arkdep): the immutable host images, the `[aur]` package
-repository used by the `userland` distrobox, and the installer ISO. The user speaks Catalan; code,
-comments and commit messages are in English (short, sentence-style subjects).
+@README.md
 
-## Layout
+The user speaks Catalan; code, comments and commit messages are in English (short, sentence-style
+subjects).
 
-```
-image/    arkdep image recipes (arkdep-build.d/, frozen since 2026-10-18: fixes only, for the P14s
-          until it runs bootc) and build, prune, notify-image
-aur/      AUR packages (packages.list) and own PKGBUILDs (local/) built into the [aur] repository
-iso/      installer ISO: Arch releng profile + podman + bootc/install as /root/install (and arkdep +
-          airootfs/root/install-arkdep); test-vm (by hand), test-install (unattended, both modes)
-serve/    nginx quadlet serving /mnt/repo (/<recipe>/, /aur/, /iso/) and the status page at /
-          (web/index.html; status-gen writes /run/distro-status, served at /status/;
-          build-trigger starts builds: POST /api/build/<unit>, polkit rule distro-trigger.rules);
-          distro-registry.container: registry:2 on port 5000 (plain HTTP), storage /mnt/repo/registry
-          (bootc and userland images)
-systemd/  build-image@.{service,timer}, build-bootc@.{service,timer}, build-aur.{service,timer},
-          build-userland.{service,timer}, build-iso.service,
-          distro-status.{service,timer} (every minute), distro-trigger.{socket,service}
-lib/      builder.sh (ensure_builder: rebuild a podman builder image when older than 7 days),
-          sign.sh (detached GPG signatures with the server key, /etc/distro-builder/gnupg),
-          push-image.sh (chunkah + signed skopeo push to the registry, tag_image: bootc and
-          userland images), retry-once (a build unit's single retry, build-bootc@)
-docs/     todo.md: pending improvements (boot time, storage, memory); layers.md: prospect of
-          layered bootc images (base, desktop, host) for every machine, a thin client included;
-          fedora.md: trial of the host images on fedora-bootc, translation of the recipes
-fedora/   package lists of the Fedora trial per layer (base, modules/, desktop/, host/):
-          packages.list, remove.list (docs/fedora.md)
-ci/       check: static checks (shellcheck, Python syntax, stray files, exec bits, recipe structure,
-          bootc layers), run by GitHub Actions on every push (.github/workflows/check.yml)
-bootc/    the bootc host images (the T480): layers/ (base, modules/, desktop/, host/<host>: a
-          packages.list and an overlay/ each, a host's layers.list), Containerfile, apply-layers,
-          build (chunkah + push to the registry as candidate, boot test, then latest), test (the
-          boot test in a VM), prune, install (from the ISO); design and VM results in
-          bootc/README.md
-userland/ the userland distrobox image: Containerfile, packages.list, distrobox.ini (the box
-          manifest, carried by the image), dbus-1/, build; prune is bootc/prune
-keys/     distro-builder.asc: public signing key, trusted by arkdep, pacman and the installer;
-          distro-builder-sigstore.pub: public key of the bootc image signatures;
-          cachyos.asc: the CachyOS repositories' key (bootc images)
-install   links the units and the quadlet, installs the polkit rule, enables the timers (also
-          podman-auto-update) and the trigger socket (run as root; rerun after changing systemd/, serve/)
-```
+## Working here
 
-All builds run on the build server (Debian, rootful podman via `sudo`, checkout
-`/home/admin/distro-builder`; its address is in the user's global CLAUDE.md), never on the
-laptops. `/mnt/repo` there is an NFS mount. Each build unit runs `git pull --ff-only` (as
-`admin`, non-fatal) first, so pushing is enough; changes to `systemd/` also need
-`systemctl daemon-reload`. A failed build triggers `notify-failure@` (Home Assistant push); both
-`notify-ha` and that unit come from the homelab repo (role `notify_ha`).
-
-Run `ci/check` before giving the user a commit: it must pass (GitHub Actions runs it on every push).
-A shellcheck warning that is intended gets a `# shellcheck disable=SCxxxx # reason` directive.
-
-Documentation is split per component: user-facing usage in `README.md` (this directory: overview,
-build server, signatures, notifications) and in each component's `README.md`; implementation notes
-and pitfalls in each component's `CLAUDE.md` (`image/`, `aur/`, `bootc/`, `iso/`), read when
-working there. Keep them in sync when changing behaviour, in the file of the component concerned.
-
-This repository is public: document only the project itself (what it builds, how and why), in
-files, comments and commit messages. Infrastructure details stay out: addresses, the other
-machines and their jobs, VM and container IDs, the file server and its paths, the cluster, work
-projects. They belong in the private homelab repo (`docs/`), which a document may point to. Docs
-and comments write the build server's address as `<server>`.
+- The build server (README) is reached over SSH as `admin`; its address is in the user's global
+  CLAUDE.md. Never build on the laptops.
+- Run `ci/check` before giving the user a commit: it must pass. A shellcheck warning that is
+  intended gets a `# shellcheck disable=SCxxxx # reason` directive.
+- Each fact lives in one file: usage in the component's `README.md`, implementation notes and
+  pitfalls in its `CLAUDE.md`, which imports the README. When behaviour changes, update the file of
+  the component concerned.
+- This repository is public: document only the project itself (what it builds, how and why), in
+  files, comments and commit messages. Infrastructure details stay out: addresses, the other
+  machines and their jobs, VM and container IDs, the file server and its paths, the cluster, work
+  projects. They belong in the private homelab repo (`docs/`), which a document may point to.
+  Docs and comments write the build server's address as `<server>`.
 
 ## System overview
 
@@ -88,13 +41,13 @@ and comments write the build server's address as `<server>`.
 
 ## Signatures
 
-Images, `[aur]` and ISO checksums are signed outside the builder containers
-(`lib/sign.sh`; the key never enters a container, which runs unreviewed AUR code). Anything
-that deletes published files must delete their `.sig` too (`prune`, `aur/build` cleans orphan
-package signatures). `sign_stale` also re-signs a file newer than its signature: a second build
-of an image on the same day replaces `<recipe>-<date>.tar.zst` under the same name, and the
-kept signature made arkdep reject it ("BAD signature", p14s-2026-10-07). The installer copies `keys/distro-builder.asc` (built into the ISO through
-`--build-context keys=../keys`) to `/arkdep/keys/trusted-keys`.
+- Anything that deletes published files must delete their `.sig` too (`prune`, `aur/build` cleans
+  orphan package signatures).
+- `sign_stale` also re-signs a file newer than its signature: a second build of an image on the
+  same day replaces `<recipe>-<date>.tar.zst` under the same name, and the kept signature made
+  arkdep reject it ("BAD signature", p14s-2026-10-07).
+- The installer gets `keys/distro-builder.asc` through `--build-context keys=../keys` (built into
+  the ISO) and copies it to `/arkdep/keys/trusted-keys`.
 
 ## Other machines
 

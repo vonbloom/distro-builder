@@ -28,7 +28,7 @@ directory.
   with [chunkah](https://github.com/coreos/chunkah) and pushes it to the registry with skopeo
   (the compressed layers as chunkah writes them) as `<recipe>:candidate`. An image with more than
   20 % fewer packages than the previous one is not pushed (a stage of the recipe that installed
-  nothing).
+  nothing; `ALLOW_FEWER_PACKAGES=1` for a recipe that drops packages on purpose).
 - `bootc/test` then tests the candidate in VMs (QEMU, KVM, UEFI), checked over SSH: installed
   new (pulled as the clients would, signature checked), then updated by `bootc-update` to the
   current `latest` made to fail its boots, which must bring the candidate back by itself (boot
@@ -42,6 +42,12 @@ directory.
   serial logs are `http://<server>/bootc/<recipe>/candidate.log` and `candidate-update.log`.
   The tests catch what breaks the boot or the update (initramfs, composefs, the `/etc` merge,
   failing units, emergency mode), not hardware drivers or the desktop.
+- A candidate that failed through the test's fault, not the image's (read `candidate.log` and
+  `candidate-update.log` first), can be promoted by hand, as root from the server's checkout:
+  `. lib/push-image.sh && tag_image <host> candidate <YYYY-MM-DD> latest`, then
+  `mv /mnt/repo/bootc/<host>/candidate.packages /mnt/repo/bootc/<host>/<host>-<YYYY-MM-DD>.pkgs`
+  (the date of the candidate's build: its `org.opencontainers.image.version`). Never for a
+  failure of the image itself: fix it and build again.
 - A failed build is retried once, half an hour later; only the second failure is notified.
 - Each image is signed with the build server's sigstore key when pushed; the signature lives in
   the registry next to it (`sha256-<digest>.sig`), and the bootc systems refuse an unsigned image
@@ -49,7 +55,10 @@ directory.
   of the base layer, the same files as the arkdep recipes' generic overlay; public key
   `keys/distro-builder-sigstore.pub` copied to `/etc/pki/containers/distro-builder.pub`).
   The status page marks each image "signada" or "sense signar". A build without the signing key
-  fails instead of pushing an image the clients would refuse.
+  fails instead of pushing an image the clients would refuse. To check a policy by hand, with
+  skopeo in a container:
+  `skopeo copy --policy P --registries.d D --src-tls-verify=false docker://<server>:5000/t480:latest dir:/tmp/x`
+  (an unsigned image: "A signature was required, but no signature exists").
 - `bootc/prune <recipe>` keeps the newest 4 dated images (`KEEP`), with their signatures, deletes
   the signatures of images no tag names any more (a second build of the same day replaces the
   image of that date), and garbage-collects the registry (`--dry-run` shows what it would do). Both run under the same lock as the arkdep builds, one at a time.
@@ -159,6 +168,26 @@ shows it once with no timeout. A machine installed before then keeps its `timeou
 `sudo unshare -m sh -c 'mount -o remount,rw /boot && sed -i "s/^timeout .*/timeout 0/" /boot/loader/loader.conf'`
 (the ESP is mounted read-only; the remount only applies inside `unshare`).
 
+## The session
+
+What the layers set up for the user (the arkdep images have the same):
+
+- Logging in on tty1 starts sway (`/etc/zsh/zlogin`; a `~/.config/zsh/.zlogin` turns it off) and
+  unlocks gnome-keyring, the Secret Service Brave and VS Code use from the userland box.
+- `$mod+F1` lists the shortcuts of the running sway config. `$mod+Shift+e`, or waybar's power
+  button, opens the power menu: lock, log out, suspend, hibernate, reboot (also to the boot
+  menu), power off and the light/dark switch, which `$mod+Shift+t` toggles too.
+- darkman turns the desktop light at sunrise and dark at sunset (location in
+  `/etc/xdg/darkman/config.yaml`): the apps' colour scheme, the GTK theme, rofi, mako and the
+  wallpaper folder. Waybar, foot and VS Code stay dark.
+- swayidle locks the screen after 10 minutes and, on battery only, suspends after 15. The lid
+  suspends only on battery: on the charger or the dock, closing it does nothing. logind never
+  suspends an idle machine by itself.
+- `podman-cleanup.timer` (user, monthly) removes images no container used for 30 days, and the
+  old VS Code server versions and extension downloads of the dev containers; never containers or
+  volumes.
+- The journal is capped at 1 GiB.
+
 ## Building and testing on a workstation
 
 ```
@@ -169,6 +198,13 @@ bcvk to-disk --composefs-backend --bootloader systemd --filesystem btrfs --forma
 
 `bcvk` (release binaries at github.com/bootc-dev/bcvk) installs the image to a disk image from an
 ephemeral VM, rootless. Boot the disk with QEMU + OVMF like `iso/test-vm`.
+
+The whole pipeline (build, test, push) runs locally too, as root with KVM, against a local
+registry: `REGISTRY=127.0.0.1:5000 PKGS_DIR=... AUR_SERVER=... AUR_SIGLEVEL=Never
+ALLOW_UNSIGNED=1`, and on Arch the OVMF paths in the header of `bootc/test`. On the server, test
+runs go to `REPOSITORY=test/<recipe> PKGS_DIR=/var/tmp/...` from a copy of the checkout
+(`git ls-files -z | tar --null -T - -c...`; editing `/home/admin/distro-builder` would make its
+`git pull --ff-only` fail); delete the test manifests through the registry API afterwards.
 
 ## Results (VM, bootc 1.17.0, bcvk 0.21.0, 2026-10-07)
 

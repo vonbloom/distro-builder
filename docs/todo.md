@@ -169,8 +169,8 @@ image's `VERSION_ID` (`initrd-release`); now only when a file it holds changes (
       `running` with no failed unit, ext4 root with `verity=require` and `ROOT: clean` from the
       initramfs, swap and `resume=`, Wi-Fi from the live system, the userland box kept. Boot 28.9 s
       (firmware 7.0, loader 12.1 with the 5 s menu, kernel 1.3, initrd 2.9, userspace 5.5; 35.6 s
-      before). Its address changed from .182 to .194: networkd's DHCP client identifier is a DUID
-      from the machine-id, new with every install.
+      before). Its address changed: networkd's DHCP client identifier is a DUID from the
+      machine-id, new with every install.
 - [ ] **Fedora bootc trial** (`fedora.md`): the recipes translated on 2026-10-18 (`fedora/`, every
       package found or replaced, resolved with dnf). Next: the Containerfile (base, modules, sway,
       host from the lists, the overlays adapted as `fedora.md` lists), the open decisions there,

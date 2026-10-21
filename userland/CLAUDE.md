@@ -1,5 +1,7 @@
 # userland image (`userland/`)
 
+@README.md
+
 - The boxes' first start must not install anything: `distrobox-init` runs its package setup
   (`pacman -Syy`, `pacman -Su`, its dependency list, locales) only when `/.containersetupdone` is
   missing, so the image creates it and has those packages (the list in `packages.list` is
@@ -20,16 +22,14 @@
   host's `catatonit -P` for a stale process and deletes the file ("pause.pid file refers to PID
   ... which is not a pause process"); the host's podman then starts another pause process at each
   call (four after a few tests, 2026-10-09, podman 6.1.3; the old userland box did the same).
-  `podman-remote` has no rootless setup and leaves it alone. The package cache is removed with `rm`: `pacman -Scc --noconfirm` answers no to
-  removing it (seen in the first test build); the live userland had 3.7 GB of it.
+  `podman-remote` has no rootless setup and leaves it alone.
+- The package cache is removed with `rm`: `pacman -Scc --noconfirm` answers no to removing it
+  (seen in the first test build); the live userland had 3.7 GB of it.
 - Files go in with `install -m 644` from a bind mount, not `COPY`: the checkout's modes (664, umask
   0002 on the build server) would end up in the image (the same trap as bootc/apply-layers).
-- `distrobox.ini` names `<server>:5000/userland:latest`; the host command that recreates the
-  boxes (not written yet) should replace it with the digest it pulled, so that the manifest and the
-  boxes come from the same image. Values without spaces are sourced by `distrobox assemble`
-  (`$(id -u)` in `additional_flags` works); `exported_bins_path` is left at its default
-  (`$HOME/.local/bin`). Exports only happen when a box is created, which is fine: every update
-  recreates it.
+- `distrobox.ini`: values without spaces are sourced by `distrobox assemble` (`$(id -u)` in
+  `additional_flags` works); `exported_bins_path` is left at its default (`$HOME/.local/bin`).
+  Exports only happen when a box is created, which is fine: every update recreates it.
 - The push is `lib/push-image.sh` (chunkah, signature, skopeo), shared with bootc/build; prune is
   `bootc/prune userland` with `PKGS_DIR=/mnt/repo/userland`. The status page lists the registry's
   `userland` repository apart from the bootc ones (`serve/status-gen`, `USERLAND`).
