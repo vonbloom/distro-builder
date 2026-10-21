@@ -24,7 +24,7 @@
   removing it (seen in the first test build); the live userland had 3.7 GB of it.
 - Files go in with `install -m 644` from a bind mount, not `COPY`: the checkout's modes (664, umask
   0002 on the build server) would end up in the image (the same trap as bootc/apply-layers).
-- `distrobox.ini` names `192.168.2.50:5000/userland:latest`; the host command that recreates the
+- `distrobox.ini` names `<server>:5000/userland:latest`; the host command that recreates the
   boxes (not written yet) should replace it with the digest it pulled, so that the manifest and the
   boxes come from the same image. Values without spaces are sourced by `distrobox assemble`
   (`$(id -u)` in `additional_flags` works); `exported_bins_path` is left at its default

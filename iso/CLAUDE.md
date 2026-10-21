@@ -3,7 +3,7 @@
 - `sudo iso/build [output_dir]` builds `iso-builder` (from `arkdep-builder`, which already trusts
   the arkane key, plus `archiso`) and runs `mkarchiso` on Arch's `releng` profile with `arkdep`
   (from `[arkane]`) added and `iso/airootfs/` copied over. The ISO goes to `/mnt/repo/iso/`
-  (`http://192.168.2.50/iso/`, with `sha256sums.txt` and its signature); older ISOs are deleted. Run through
+  (`http://<server>/iso/`, with `sha256sums.txt` and its signature); older ISOs are deleted. Run through
   `build-iso.service` (pull + `flock /run/build-image.lock`). No timer: rebuild it when the
   installer changes or the live system gets too old.
 - `/root/install` is `bootc/install` (copied in by `iso/build`'s `--build-context bootc=../bootc`,

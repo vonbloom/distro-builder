@@ -18,7 +18,7 @@ import json, sys
 staged = (json.load(sys.stdin).get("status") or {}).get("staged")
 if staged:
     image = staged["image"]
-    recipe = image["image"]["image"].rsplit("/", 1)[-1].split(":")[0]  # 192.168.2.50:5000/t480:latest
+    recipe = image["image"]["image"].rsplit("/", 1)[-1].split(":")[0]  # <server>:5000/t480:latest
     # org.opencontainers.image.version, the build date tag; on composefs bootc reads it only from
     # the manifest annotations (bootc-dev/bootc#2227; images before 2026-10-08 have only the
     # label): the creation date is the same (the build server runs in UTC)

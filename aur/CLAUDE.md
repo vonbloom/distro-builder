@@ -1,7 +1,7 @@
 # AUR repository (`aur/`)
 
 - Builds the AUR packages in `aur/packages.list` in a throwaway podman container and publishes them
-  as the pacman repository `[aur]` at `http://192.168.2.50/aur/` (`/mnt/repo/aur`), signed by
+  as the pacman repository `[aur]` at `http://<server>/aur/` (`/mnt/repo/aur`), signed by
   `aur/build` after the container (packages and `aur.db`). Client: the `userland` distrobox
   (`~/.dotfiles/distrobox/.config/distrobox/pre_init_distrobox_assemble.sh`).
 - `build-aur.timer`: daily 04:00 UTC + up to 30 min random delay, `Persistent=true`. Logs:

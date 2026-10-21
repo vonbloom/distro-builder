@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Usage: build [output_dir]   (default: /mnt/repo/iso, served at http://192.168.2.50/iso/)
+# Usage: build [output_dir]   (default: /mnt/repo/iso, served at http://<server>/iso/)
 # Build the installer ISO (as root: mkarchiso needs loop devices). Only the newest ISO is kept.
 
 set -euo pipefail

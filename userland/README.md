@@ -23,10 +23,10 @@ back to an older image brings back its exports too.
 
 `build-userland.service` runs `build` every Sunday at 15:00 Europe/Madrid (after the arkdep and
 bootc images, under the same lock), or by hand: the status page, or
-`sudo systemctl start build-userland.service`. It pushes `192.168.2.50:5000/userland:YYYY-MM-DD` and
+`sudo systemctl start build-userland.service`. It pushes `<server>:5000/userland:YYYY-MM-DD` and
 `:latest`, signed with the server's sigstore key, in per-package layers: a new image downloads only
 the packages that changed. `bootc/prune` keeps the newest 4 dated tags. The package list of each
-image is at `http://192.168.2.50/userland/userland-<date>.pkgs`, and the build sends a "New userland
+image is at `http://<server>/userland/userland-<date>.pkgs`, and the build sends a "New userland
 image" notification with the changes since the previous one.
 
 ## Changing the packages
@@ -44,7 +44,7 @@ to the digest it pulled and recreates `userland` with it (`distrobox assemble cr
 then installs the D-Bus services and removes the previous image. It does nothing when userland
 already runs that image, asks before replacing a running box (the apps opened from it close;
 `--yes` skips the question), and `--dry-run` only shows what it would do.
-`userland-update 192.168.2.50:5000/userland:<date>` goes back to an older image (the registry keeps
+`userland-update <server>:5000/userland:<date>` goes back to an older image (the registry keeps
 four). On a new machine `deploy-userland` runs it at the first login. The host images trust the
 registry and require its signature (the base layer `bootc/layers/base`, the generic overlay of
 `image/arkdep-build.d/depends` on arkdep).

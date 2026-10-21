@@ -21,7 +21,7 @@ service, rolling back if it does not start):
 
 ## Status page
 
-`http://192.168.2.50/` is a status page (`serve/web/index.html`, a single static file) instead of
+`http://<server>/` is a status page (`serve/web/index.html`, a single static file) instead of
 the directory listing (still available under each directory):
 
 - **Builds**: state, last run, duration and next run of each build unit, with its log (follows the
@@ -55,6 +55,6 @@ signatures (tags `sha256-<digest>.sig`): see [`../bootc/README.md`](../bootc/REA
 A health check (`wget` of `/v2/` every minute) kills the container after three failures and
 systemd starts a new one. A failing storage makes the registry answer everything with 503 "health
 check failed", and its bind mount of `/mnt/repo/registry` can go stale for good ("Stale file
-handle": mergerfs on zeus forgot the directory during the SnapRAID sync, 2026-10-17; fixed on
-zeus by the pool options `noforget,inodecalc=path-hash`, homelab role `storage`); only a new
-container mounts it again. `podman healthcheck run distro-registry` runs the check by hand.
+handle": the file server forgot the directory on 2026-10-17, fixed on its side in the homelab
+repo); only a new container mounts it again. `podman healthcheck run distro-registry` runs the
+check by hand.

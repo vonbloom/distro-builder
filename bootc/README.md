@@ -39,13 +39,13 @@ directory.
   `<recipe>:YYYY-MM-DD` and `<recipe>:latest`, the tag the bootc systems follow,
   name it, and the package list goes to `/mnt/repo/bootc/<recipe>/` for the notification. After a
   failed test `latest` stays where it was, the candidate stays in the registry for review, and the
-  serial logs are `http://192.168.2.50/bootc/<recipe>/candidate.log` and `candidate-update.log`.
+  serial logs are `http://<server>/bootc/<recipe>/candidate.log` and `candidate-update.log`.
   The tests catch what breaks the boot or the update (initramfs, composefs, the `/etc` merge,
   failing units, emergency mode), not hardware drivers or the desktop.
 - A failed build is retried once, half an hour later; only the second failure is notified.
 - Each image is signed with the build server's sigstore key when pushed; the signature lives in
   the registry next to it (`sha256-<digest>.sig`), and the bootc systems refuse an unsigned image
-  of `192.168.2.50:5000` (`/etc/containers/policy.json` and `registries.d/50-distro-builder.yaml`
+  of `<server>:5000` (`/etc/containers/policy.json` and `registries.d/50-distro-builder.yaml`
   of the base layer, the same files as the arkdep recipes' generic overlay; public key
   `keys/distro-builder-sigstore.pub` copied to `/etc/pki/containers/distro-builder.pub`).
   The status page marks each image "signada" or "sense signar". A build without the signing key
@@ -70,7 +70,7 @@ directory.
 - The registry (`serve/distro-registry.container`, `registry:2`, storage in `/mnt/repo/registry`)
   serves plain HTTP on port 5000; the images list it as insecure in
   `/etc/containers/registries.conf.d/50-distro-builder.conf`. A bootc system follows a recipe with
-  `bootc switch 192.168.2.50:5000/<recipe>:latest` and updates with `bootc upgrade`.
+  `bootc switch <server>:5000/<recipe>:latest` and updates with `bootc upgrade`.
 - `bootc/install` installs an image from the installer ISO, on a whole disk or keeping a `/home`
   partition: see [below](#installing-a-bootc-image).
 
@@ -107,8 +107,8 @@ Install:
    e.g. `/dev/sda`, not a partition: `TRAN` says `usb`; everything on it is lost):
 
    ```sh
-   curl -O http://192.168.2.50/iso/sha256sums.txt -O http://192.168.2.50/iso/sha256sums.txt.sig
-   iso=$(awk '{ print $2 }' sha256sums.txt); curl -O "http://192.168.2.50/iso/$iso"
+   curl -O http://<server>/iso/sha256sums.txt -O http://<server>/iso/sha256sums.txt.sig
+   iso=$(awk '{ print $2 }' sha256sums.txt); curl -O "http://<server>/iso/$iso"
    gpg --dearmor < ~/Projectes/distro-builder/keys/distro-builder.asc > distro-builder.gpg
    gpgv --keyring ./distro-builder.gpg sha256sums.txt.sig sha256sums.txt && sha256sum -c sha256sums.txt
    lsblk -d -o NAME,SIZE,TRAN,MODEL

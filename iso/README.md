@@ -26,7 +26,7 @@ when the installer changes or when the live system is too old for new hardware.
 bootc: `/root/install`, see [Installing a bootc image](../bootc/README.md#installing-a-bootc-image)
 (a whole disk, or keeping a home partition). The rest of this section is the arkdep installer.
 
-1. Download the ISO, `sha256sums.txt` and `sha256sums.txt.sig` from `http://192.168.2.50/iso/`,
+1. Download the ISO, `sha256sums.txt` and `sha256sums.txt.sig` from `http://<server>/iso/`,
    check them and write the ISO to a USB stick (the commands are in step 1 of [Installing a bootc
    image](../bootc/README.md#installing-a-bootc-image); `gpgv` cannot read the keyring from a pipe
    such as `<(gpg --dearmor ...)`). The installed system verifies every image with the same key.

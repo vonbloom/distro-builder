@@ -17,7 +17,7 @@ fontconfig cachyos-keyring ttf-jetbrains-mono-nerd noto-fonts-emoji ttf-liberati
 
 # Desktop apps, exported to the host by distrobox.ini
 brave-bin pipewire-pulse libpulse
-# Microsoft's VS Code from [aur]: the Dev Containers extension (tramit-* projects) does not work in
+# Microsoft's VS Code from [aur]: the Dev Containers extension (work projects) does not work in
 # Code-OSS or VSCodium. podman is a client of the host's socket (99-remote.conf)
 visual-studio-code-bin podman git
 # adw-gtk-theme: the GTK3 theme darkman switches between light and dark on the host (shared dconf)
@@ -32,7 +32,7 @@ qemu-base edk2-ovmf qemu-hw-display-virtio-vga qemu-hw-display-virtio-gpu
 gimp imagemagick
 # imv: image viewer, default for images in the boxes (mimeapps.list); also exported to the host
 imv
-# Syncthing (notes with the server, CT 112): run by a host user unit that enters this box (dotfiles)
+# Syncthing: run by a host user unit that enters this box (dotfiles)
 syncthing
 
 # Terminal tools

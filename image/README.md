@@ -62,7 +62,7 @@ flags it.
 
 ## On the laptops
 
-`/arkdep/config` points to the server (`repo_url='http://192.168.2.50'`,
+`/arkdep/config` points to the server (`repo_url='http://<server>'`,
 `repo_default_image='<recipe>'`), so updating is:
 
 ```sh

@@ -13,7 +13,7 @@
 # environment. Other changes made in it (files edited by hand) go.
 #   --yes      replace a running box without asking (the apps opened from it close)
 #   --dry-run  show what would change (with --playground: the packages added in it), change nothing
-#   IMAGE      another tag or digest, e.g. 192.168.2.50:5000/userland:2026-10-09 to go back to it
+#   IMAGE      another tag or digest, e.g. <server>:5000/userland:2026-10-09 to go back to it
 
 set -euo pipefail
 

@@ -6,7 +6,7 @@
   with more than 20 % fewer packages than the newest `<recipe>-<date>.pkgs`, `ALLOW_FEWER_PACKAGES=1`
   for a recipe that drops them on purpose; chunkah rechunk into an OCI directory layout in
   `/var/tmp` (`-o oci:`, gzip layers), pushed as it is by skopeo (`copy --preserve-digests`) to
-  `192.168.2.50:5000/<recipe>:candidate`, signed, then remove the local image; that part is
+  `<server>:5000/<recipe>:candidate`, signed, then remove the local image; that part is
   `push_image` in `lib/push-image.sh`, shared with the userland image), then `bootc/test` (below).
   Only when it passes does `tag_image` (same file) point `<date>` and `latest` at the candidate:
   its manifest copied byte for byte through the registry API, so the digest and the signature are
@@ -62,7 +62,7 @@
     host's first image (no latest) gets only the install. `--from` and `--fallback` need signed
     images: the VM's own policy checks.
   - A unit that fails only in a VM gets an exception in `FAILURE`, never removed from the image.
-    Needs `/dev/kvm` (VM 202 `cpu: host`, nested KVM on zeus), `qemu-system-x86` + `ovmf`
+    Needs `/dev/kvm` (the server's VM has `cpu: host`: nested KVM), `qemu-system-x86` + `ovmf`
     (homelab "Build server" play), ssh and python3. Not tested: hardware drivers, the desktop.
     Serial log lines that are no unit failures and do not fail it: systemd-resolved "Failed to
     open /etc/resolv.conf: Permission denied" (a fresh install only, before tmpfiles links it),
@@ -154,7 +154,7 @@
   tag and `latest` get the same manifest (same digest, same signature). Without the key
   `push_image` fails (`ALLOW_UNSIGNED=1` for local test runs): until 2026-10-18 it pushed unsigned
   with a warning, and every client would have refused the image and stopped updating without a
-  word. The push goes to `192.168.2.50:5000`, not localhost: the
+  word. The push goes to `<server>:5000`, not localhost: the
   signature names the reference it was pushed as, and the clients' policy uses `matchRepository`.
   skopeo (like podman) only writes sigstore attachments with `use-sigstore-attachments` in
   registries.d: the server gets the base layer's `registries.d/50-distro-builder.yaml` from
@@ -170,7 +170,7 @@
   signature triggers the collection, which removes the untagged image. `candidate` is not a date:
   prune keeps it; after a failed boot test it names the failed image until the next build moves
   it, and then prune deletes that image's signature and the collection the image. `prune --dry-run` lists it all. Check a policy by hand with skopeo in a container:
-  `skopeo copy --policy P --registries.d D --src-tls-verify=false docker://192.168.2.50:5000/t480:latest dir:/tmp/x`
+  `skopeo copy --policy P --registries.d D --src-tls-verify=false docker://<server>:5000/t480:latest dir:/tmp/x`
   (an unsigned image: "A signature was required, but no signature exists").
 - Updates on bootc systems: `bootc-update.timer` (base layer, enabled by `81-base.preset`) runs
   `bootc-update`:
@@ -211,9 +211,9 @@
     `bootc-update` prints "Did not boot: <title>" and the indicator turns red (class `failed`).
     `sudo bootc rollback` would make it the default again (bootc asserts exactly two entries).
   - A kernel panic hangs (no `panic=` on the command line) and emergency mode waits: every try
-    ends with the power button. An unattended machine with automatic reboots (yamaha) wants
-    `panic=`. The first update to an image with counting is finalized by the image before it: not
-    counted.
+    ends with the power button. An unattended machine with automatic reboots (the thin client of
+    `docs/layers.md`) wants `panic=`. The first update to an image with counting is finalized by
+    the image before it: not counted.
 - `apply-layers` copies the overlays like arkdep-build's `cp -r`: `tar --no-same-owner --no-same-permissions` into a staging directory, then `cp -r` to `/`
   (existing files and directories keep owner and mode). Plain `tar -xp` kept the checkout's UID
   1000 and 775 modes, also on existing dirs (`/usr`, `/usr/lib`, `/etc/systemd`): sudo ignored

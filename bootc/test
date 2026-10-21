@@ -26,7 +26,7 @@
 # root gets a throwaway SSH key at the install (bootc install --root-ssh-authorized-keys). It does
 # not test hardware drivers (GPU, Wi-Fi) or the desktop.
 # The serial log goes to BOOT_LOG (default: the work directory, deleted afterwards). Needs root,
-# /dev/kvm (VM 202: cpu host, homelab host_vars/zeus.yml), qemu-system-x86, ovmf and ssh.
+# /dev/kvm (in a VM: CPU type host, nested KVM), qemu-system-x86, ovmf and ssh.
 # Local test runs (no signing key, the image unsigned): ALLOW_UNSIGNED=1, and on Arch
 # OVMF_CODE=/usr/share/edk2/x64/OVMF_CODE.4m.fd OVMF_VARS=/usr/share/edk2/x64/OVMF_VARS.4m.fd
 # (--from and --fallback need signed images: bootc switch and bootc upgrade in the VM check them)

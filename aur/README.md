@@ -35,5 +35,5 @@ pacman-key --lsign-key CF471E6685974BF43EA113623F9EBD77B1E60E55
 ```ini
 [aur]
 SigLevel = Required
-Server = http://192.168.2.50/aur
+Server = http://<server>/aur
 ```

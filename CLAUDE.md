@@ -26,7 +26,7 @@ lib/      builder.sh (ensure_builder: rebuild a podman builder image when older 
           push-image.sh (chunkah + signed skopeo push to the registry, tag_image: bootc and
           userland images), retry-once (a build unit's single retry, build-bootc@)
 docs/     todo.md: pending improvements (boot time, storage, memory); layers.md: prospect of
-          layered bootc images (base, desktop, host) for every machine, yamaha included;
+          layered bootc images (base, desktop, host) for every machine, a thin client included;
           fedora.md: trial of the host images on fedora-bootc, translation of the recipes
 fedora/   package lists of the Fedora trial per layer (base, modules/, desktop/, host/):
           packages.list, remove.list (docs/fedora.md)
@@ -46,10 +46,11 @@ install   links the units and the quadlet, installs the polkit rule, enables the
           podman-auto-update) and the trigger socket (run as root; rerun after changing systemd/, serve/)
 ```
 
-All builds run on the server `192.168.2.50` (Debian, rootful podman via `sudo`, checkout
-`/home/admin/distro-builder`), never on the laptops. `/mnt/repo` there is NFS from zeus
-(`192.168.2.10`). Each build unit runs `git pull --ff-only` (as `admin`, non-fatal) first, so
-pushing is enough; changes to `systemd/` also need `systemctl daemon-reload`. A failed build triggers `notify-failure@` (Home Assistant push); both
+All builds run on the build server (Debian, rootful podman via `sudo`, checkout
+`/home/admin/distro-builder`; its address is in the user's global CLAUDE.md), never on the
+laptops. `/mnt/repo` there is an NFS mount. Each build unit runs `git pull --ff-only` (as
+`admin`, non-fatal) first, so pushing is enough; changes to `systemd/` also need
+`systemctl daemon-reload`. A failed build triggers `notify-failure@` (Home Assistant push); both
 `notify-ha` and that unit come from the homelab repo (role `notify_ha`).
 
 Run `ci/check` before giving the user a commit: it must pass (GitHub Actions runs it on every push).
@@ -59,6 +60,12 @@ Documentation is split per component: user-facing usage in `README.md` (this dir
 build server, signatures, notifications) and in each component's `README.md`; implementation notes
 and pitfalls in each component's `CLAUDE.md` (`image/`, `aur/`, `bootc/`, `iso/`), read when
 working there. Keep them in sync when changing behaviour, in the file of the component concerned.
+
+This repository is public: document only the project itself (what it builds, how and why), in
+files, comments and commit messages. Infrastructure details stay out: addresses, the other
+machines and their jobs, VM and container IDs, the file server and its paths, the cluster, work
+projects. They belong in the private homelab repo (`docs/`), which a document may point to. Docs
+and comments write the build server's address as `<server>`.
 
 ## System overview
 
@@ -91,6 +98,6 @@ kept signature made arkdep reject it ("BAD signature", p14s-2026-10-07). The ins
 
 ## Other machines
 
-- ThinkPad T480 (hardware info, tests of the `t480` recipe): `ssh roger@192.168.2.194`, bootc
-  `t480` image since 2026-10-08, reinstalled on 2026-10-18 (ext4 root, `bootc/install` keeping
-  the home).
+- ThinkPad T480 (hardware info, tests of the `t480` recipe; its address is in the user's global
+  CLAUDE.md): bootc `t480` image since 2026-10-08, reinstalled on 2026-10-18 (ext4 root,
+  `bootc/install` keeping the home).

@@ -8,11 +8,14 @@ new machine.
 
 | Tool | What it produces | Where it is published | When |
 |---|---|---|---|
-| [`image/`](image/README.md) | arkdep images, one per device recipe | `http://192.168.2.50/<recipe>/` | weekly (Sunday 08:00 Europe/Madrid) |
-| [`bootc/`](bootc/README.md) | bootc images of the same recipes (trial: the T480 runs them) | registry `192.168.2.50:5000/<recipe>` | weekly (Sunday 13:00 Europe/Madrid) |
-| [`userland/`](userland/README.md) | the image of the `userland` and `playground` distroboxes | registry `192.168.2.50:5000/userland` | weekly (Sunday 15:00 Europe/Madrid) |
-| [`aur/`](aur/README.md) | the pacman repository `[aur]` | `http://192.168.2.50/aur/` | daily (04:00 UTC) |
-| [`iso/`](iso/README.md) | the installer ISO | `http://192.168.2.50/iso/` | by hand |
+| [`image/`](image/README.md) | arkdep images, one per device recipe | `http://<server>/<recipe>/` | weekly (Sunday 08:00 Europe/Madrid) |
+| [`bootc/`](bootc/README.md) | bootc images of the same recipes (trial: the T480 runs them) | registry `<server>:5000/<recipe>` | weekly (Sunday 13:00 Europe/Madrid) |
+| [`userland/`](userland/README.md) | the image of the `userland` and `playground` distroboxes | registry `<server>:5000/userland` | weekly (Sunday 15:00 Europe/Madrid) |
+| [`aur/`](aur/README.md) | the pacman repository `[aur]` | `http://<server>/aur/` | daily (04:00 UTC) |
+| [`iso/`](iso/README.md) | the installer ISO | `http://<server>/iso/` | by hand |
+
+`<server>` stands for the [build server](#build-server)'s address, here and in the other
+documents.
 
 Each directory has a `README.md` with its usage and a `CLAUDE.md` with implementation notes and the
 pitfalls already hit; [`serve/README.md`](serve/README.md) covers the web server, the status page
@@ -43,22 +46,21 @@ sends an email); run it before pushing.
 
 ## Build server
 
-Everything builds on `192.168.2.50` (VM 202 on the Proxmox host zeus, Debian 13, user `admin`,
-checkout `/home/admin/distro-builder`), never on the laptops. Requirements:
+Everything builds on one server (Debian 13, user `admin`, checkout `/home/admin/distro-builder`),
+never on the laptops. Requirements:
 
 - rootful podman (builds run with `sudo`; image and ISO builds need `--privileged` for btrfs and
   loop devices) and the `loop` module;
-- `/mnt/repo` mounted from the file server (NFS `192.168.2.10:/mnt/pool/repos/arkdep`): images,
-  AUR packages and ISOs are written there and served from there;
+- `/mnt/repo` mounted from a file server (NFS): images, AUR packages and ISOs are written there
+  and served from there;
 - `notify-ha` and the `notify-failure@.service` template, installed by the homelab repo (Ansible
   role `notify_ha`), for the Home Assistant notifications;
 - port 5000 reachable from the LAN for the container registry (the bootc and userland images);
-- KVM (`/dev/kvm`: the VM's CPU type is `host`), `qemu-system-x86` and `ovmf` for the boot test of
-  the bootc images (`bootc/test`), set up by the homelab repo too.
+- KVM (`/dev/kvm`; in a VM, CPU type `host` for nested KVM), `qemu-system-x86` and `ovmf` for the
+  boot test of the bootc images (`bootc/test`), set up by the homelab repo too.
 
-The VM is defined in the homelab repo and is rebuilt from scratch rather than backed up: Ansible
-creates it (`pve_guests`, cloud-init), clones this repository and runs `install` (play "Build
-server"). Step by step: `docs/rebuild.md` in the homelab repo. To set up a server by hand:
+Here the server is a VM that the homelab repo rebuilds from scratch rather than backing it up:
+Ansible creates it, clones this repository and runs `install`. To set up a server by hand:
 
 ```sh
 git clone https://github.com/vonbloom/distro-builder.git ~/distro-builder
@@ -114,7 +116,7 @@ Clients get the public key from this repository, not from the server they verify
   `sudo sh -c 'gpg --dearmor < keys/distro-builder.asc > /arkdep/keys/trusted-keys'`;
 - the `[aur]` clients: `pacman-key --add` + `--lsign-key` (see [aur/README.md](aur/README.md));
 - the registry's clients (bootc systems, and podman on every laptop for the userland image):
-  `/etc/pki/containers/distro-builder.pub` in the image, required for `192.168.2.50:5000` by
+  `/etc/pki/containers/distro-builder.pub` in the image, required for `<server>:5000` by
   `/etc/containers/policy.json` (the base layer `bootc/layers/base`, and the generic overlay of
   `image/arkdep-build.d/depends` for arkdep; bootc
   refuses unsigned updates, podman unsigned pulls); `bootc/install` sets the same up in the live

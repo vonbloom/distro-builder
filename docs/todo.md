@@ -65,10 +65,10 @@ Measured 2026-10-07: 31.6 s = 16.1 s firmware + 3.5 s loader + 0.9 s kernel + 7.
 
 ## bootc builds
 
-First server build (build-bootc@p14s, 2026-10-07, VM 202 with 6 cores): 18 min, I/O bound. Package
+First server build (build-bootc@p14s, 2026-10-07, a VM with 6 cores): 18 min, I/O bound. Package
 download and install take 1.6 min; committing the recipe layer (~3.5 GB, ~100k files) 5.6 min;
 chunkah + `podman load` ~7 min (and the 6.9 GB memory peak of the 8 GB VM); the push 1 min (later
-pushes only upload changed layers). The VM disk is a zvol on zeus' Kingston SA400 SATA SSDs.
+pushes only upload changed layers). The VM disk was on SATA SSDs then (NVMe since 2026-10-15).
 
 Layer reuse (measured 2026-10-09 in the registry): the two t480 builds of 2026-10-08, 20 min
 apart with recipe changes in between, share 104 of 128 layers: the update downloads 162 MiB of the
@@ -90,10 +90,10 @@ image's `VERSION_ID` (`initrd-release`); now only when a file it holds changes (
       network, the journal on the serial console) until "Startup finished" without a failed unit;
       only then do the dated tag and `latest` name it (`tag_image`). On failure `latest` stays,
       `notify-failure@` reports the matching lines and the tail of the serial log (after one retry
-      30 min later), and the whole log is `candidate.log` next to the `.pkgs` files. VM 202 got
-      `cpu: host` (nested KVM; zeus has `kvm_intel nested=Y`) and `qemu-system-x86` + `ovmf`
-      (homelab). Same change: no push without the signing key (it pushed unsigned with a warning,
-      and the clients would have refused it without a word), no push with 20 % fewer packages than
+      30 min later), and the whole log is `candidate.log` next to the `.pkgs` files. The VM got
+      `cpu: host` (nested KVM) and `qemu-system-x86` + `ovmf` (homelab). Same change: no push
+      without the signing key (it pushed unsigned with a warning, and the clients would have
+      refused it without a word), no push with 20 % fewer packages than
       the previous image, the CachyOS key from `keys/` instead of the keyserver, `--pull=newer`
       for the base image, and the checkout's commit as `org.opencontainers.image.revision`.
       Catches what breaks the generic boot (initramfs and dracut modules, composefs setup, `/etc`
@@ -181,9 +181,10 @@ image's `VERSION_ID` (`initrd-release`); now only when a file it holds changes (
       firmware, loader, kernel and initrd (T480: 13.1 + 10.9 + 1.3 + 3.3 s of its 35.6 s boot);
       the session still closes. Only when the new image has the same boot digest (sha256 of
       `vmlinuz` + initramfs) and kernel command line. Waits until bootc is the default on the
-      laptops or yamaha moves to bootc (unattended updates of a server), and until the T480 shows
-      how often consecutive images qualify, now that the initramfs no longer changes on every
-      build (Arch updates its kernel, systemd, glibc, zstd or plymouth's libraries most weeks).
+      laptops or the thin client moves to bootc (unattended updates of a server), and until the
+      T480 shows how often consecutive images qualify, now that the initramfs no longer changes
+      on every build (Arch updates its kernel, systemd, glibc, zstd or plymouth's libraries most
+      weeks).
       Then:
       - `bootc-update` stages with `bootc upgrade --soft-reboot=auto`: when the image qualifies,
         bootc mounts it at `/run/nextroot` (otherwise it stays staged for a normal reboot). It
@@ -215,7 +216,7 @@ image's `VERSION_ID` (`initrd-release`); now only when a file it holds changes (
         layers gzip-compressed once, no outer archive) into a work directory on the server (the
         compressed image is ~1.0 GiB today), then
         `skopeo copy --preserve-digests --dest-tls-verify=false --sign-by-sigstore-private-key ...
-        --sign-passphrase-file ... oci:<dir> docker://192.168.2.50:5000/<recipe>:<date>` and the
+        --sign-passphrase-file ... oci:<dir> docker://<server>:5000/<recipe>:<date>` and the
         same copy, unsigned, to `:latest` (blobs already there are skipped, the manifest digest
         stays the same, so the signature covers both tags as today). `--preserve-digests` makes
         skopeo fail rather than rewrite the manifest. skopeo reads `registries.d` for
@@ -245,16 +246,16 @@ image's `VERSION_ID` (`initrd-release`); now only when a file it holds changes (
       and `mango` to try mangowm, in cachyos-extra-v3) -> device (ucode, firmware, tlp.d, dracut
       GPU config, initramfs), published as `<device>-<desktop>`. Each extra combination only builds
       its device layer, and switching desktop on a laptop is a `bootc switch` (rollback included).
-      Prospect with a third kind of machine (yamaha: x86-64-v2, Cinnamon, appliance services),
-      the split of `depends/generic` into base and modules, and a phase 1 in today's recipe
-      format: `layers.md` (2026-10-09).
+      Prospect with a third kind of machine (a thin client: x86-64-v2, Cinnamon, appliance
+      services), the split of `depends/generic` into base and modules, and a phase 1 in today's
+      recipe format: `layers.md` (2026-10-09).
       Done in part (2026-10-18): the bootc images no longer replay the arkdep recipes
       (`build-recipe.sh`): `bootc/layers` has `base`, `modules/laptop`, `modules/workstation`,
       `desktop/sway` and `host/{t480,p14s}` (a `packages.list` and an `overlay/` each, a host's
       `layers.list`), applied in order by `bootc/apply-layers` in the one Containerfile, and
       `image/arkdep-build.d` is frozen for the P14s. Still to do: an image per layer in the
       registry (the base built once for every host, a host build reusing it), the audio modules and
-      yamaha (`layers.md`).
+      the thin client (`layers.md`).
       - The userland image stays apart from these layers (decided 2026-10-09). The host image takes
         what needs root, hardware, the boot or the session (drivers, network, virtualization,
         the compositor, portals, the keyring) plus what the host's own shells and scripts use;
@@ -272,11 +273,9 @@ image's `VERSION_ID` (`initrd-release`); now only when a file it holds changes (
       `--build-arg` of its install step, so a new package version invalidates that layer and the
       ones above. Arch updates the base nearly every week; the gain is for changes in the desktop
       or device layers and for reruns in the same week. Nothing changed: no new tag, no notification.
-- [ ] VM 202 memory 8 -> 12 GB (homelab `host_vars/zeus.yml`, `qm set 202 --memory 12288`). Less
-      pressing since the skopeo push: a bootc build peaks at 3 GB.
 - [ ] Optional: pacman package cache across builds (`RUN --mount=type=cache`), ~700 MB of
       downloads per build (40 s today).
-- The rpool NVMe replacement (homelab TODO) speeds up every I/O bound phase.
+- The server's disk is NVMe since 2026-10-15: measure the I/O bound phases again.
 
 ## userland image
 
@@ -289,11 +288,11 @@ without installing anything, with zsh, `ca_ES.UTF-8`, the apps and the remote po
 Still to do, in order:
 
 - [ ] **Pull from the registry on the laptops**: the registry's client config moved from
-      `bootc/overlay` to the generic overlay (`registries.conf.d` with `192.168.2.50:5000` as
+      `bootc/overlay` to the generic overlay (`registries.conf.d` with `<server>:5000` as
       insecure, `registries.d`, a `policy.json` that requires the signature for that registry and
       keeps Arch's default for the others), and the arkdep image gets the key from `keys/`
       (2026-10-09). To check once the P14s runs an image built with it: `podman pull
-      192.168.2.50:5000/userland:latest` works, and an unsigned image there is refused.
+      <server>:5000/userland:latest` works, and an unsigned image there is refused.
 - [x] **`userland-update`** in the host images (generic overlay, 2026-10-09): pulls
       `userland:latest`, and if userland runs another image reads `distrobox.ini` and the D-Bus
       services from it, pins its `image=` lines to the pulled digest, `distrobox assemble create
@@ -448,8 +447,8 @@ Upstream issues with a local workaround, to drop when they are fixed in a bootc 
         as v262), and here the detection comes from podman's `/run/.containerenv`, a bind mount
         checked before the PID namespace. `systemd-detect-virt --container` in
         `podman run --pid=host` says `podman` with or without it. cgwalters' agent reached the
-        same conclusions from the code, without a VM (in his tracker, not on the PR). Answered
-        on 2026-10-20 (issuecomment-6290651271):
+        same conclusions from the code (in his tracker, not on the PR; a VM run followed, below).
+        Answered on 2026-10-20 (issuecomment-6290651271):
         - the `--variables=yes` idea was ours;
         - the `container=""` test;
         - bootupd needs shim, so #2512 doesn't cover shim-less images;
@@ -468,6 +467,37 @@ Upstream issues with a local workaround, to drop when they are fixed in a bootc 
         container: `--variables=yes --graceful` fails the same way, without `--variables` it
         skips them (rc 0). Best effort in bootc means not passing `--variables=yes` where it
         cannot work, as before the PR.
+      - cgwalters' agent, run again in an OVMF VM on 2026-10-20
+        (bootc-dev/cgwalters-devspace-sandbox#24, not on the PR), agrees with our answer and goes
+        further. Tested with `to-disk` only:
+        - systemd: `bootctl install` ignores the override of the container check that
+          `--variables=yes` gives the other verbs since v260 (systemd@1fa1e88):
+          `should_touch_install_variables()` never calls `set_efi_boot()`. Its patch fixes that
+          through the existing `--variables=yes`, no new option, and then probes the ESP too.
+          Better than our `--variables=always`.
+        - A second blocker: with bootc's `SYSTEMD_RELAX_ESP_CHECKS=1`, and in any container,
+          bootctl skips probing the ESP's device and writes an entry with an empty device path
+          (`HD(0,GPT,00000000-...)`), which the firmware cannot load.
+        - bootc: now, drop the `--variables=yes` commit and warn (its diff, tested); once a systemd
+          release has the patch, `--variables=yes` from that version on and the relax only for
+          `--generic-image`.
+      - Our check of the `to-filesystem` case (2026-10-21, the ISO VM, a `test/t480` image with
+        bootc 1.17.1 and systemd 262). A `bootctl` wrapper on the container's `PATH` stood in for
+        the proposal: it adds `--variables=yes`, drops the relax and hides `/run/.containerenv`
+        in a private mount namespace (what the systemd patch amounts to). `bootc/install` kept
+        the home, without its `efibootmgr` step:
+        - `bootc install to-filesystem` passes the strict ESP checks (ESP mounted at
+          `/target/boot`), and bootctl creates `Linux Boot Manager` with
+          `HD(1,GPT,<ESP PARTUUID>,...)`, first in BootOrder. Booted with the disk alone and that
+          NVRAM, OVMF loads that entry and the system reaches the login prompt.
+        - With the relax kept, the same call writes its entries with `HD(0,GPT,00000000-...)`,
+          first in BootOrder: the second blocker holds on 262 too.
+        - systemd 262 also creates `Fallback Linux Boot Manager` for
+          `systemd-boot-fallbackx64.efi`, which is not on the ESP yet. By design: `bootctl update`
+          copies the previous binary there. The firmware skips the missing file.
+        - Not covered: osbuild (no udev database), the case the relax was added for.
+
+        Not posted: it waits until the proposal reaches the PR or systemd.
       - bootupd, Fedora's way to the entry, is not one for us. bootc hands GRUB to bootupd,
         which runs `efibootmgr`, and the draft bootc-dev/bootc#2512 would hand it systemd-boot
         too (bootupd >= 0.3.0). But bootupd only installs systemd-boot behind shim and points the
@@ -515,6 +545,13 @@ Upstream issues with a local workaround, to drop when they are fixed in a bootc 
         `bootc-update` only matters for images without the label.
 - [ ] AUR `bootc` without the `selinux` feature (reported in the AUR comments): `aur/local/bootc`
       while the AUR package links libselinux.
+      - The maintainer (jjm) has answered no comment since 2025-11; nvchecker bumps the version
+        (1.17.1 came after our comment, without the fix), so every release since 1.16.11 fails
+        in a clean chroot.
+      - Emailed the maintainer on 2026-10-20 (the comment's patch, offer to co-maintain). No answer
+        by 2026-11-03: decide whether to file an orphan request and adopt it (`aur/local/bootc`
+        would become the AUR package). Not out-of-date flags (new versions only) nor a duplicate
+        package.
 - [ ] ESP mounted read-only by bootc (`systemd.mount-extra=...:/boot:auto:ro`), which breaks
       systemd-boot's own units (none reported yet): `systemd-boot-random-seed` is masked, and
       `systemd-boot-update` and `systemd-bless-boot` remount it read-write in their own process

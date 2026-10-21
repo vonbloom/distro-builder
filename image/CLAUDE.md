@@ -14,7 +14,7 @@ recipes only get fixes while the P14s runs arkdep. New packages and configuratio
   previous months; `prune --dry-run <recipe>` shows the plan) and `notify-image` sends "New image
   ..." with the package changes to Home Assistant. Logs: `journalctl -u build-image@<recipe>`.
 - `serve/distro-repo.container` (nginx quadlet) serves `/mnt/repo` at
-  `http://192.168.2.50/<recipe>/` (`database` file + `<name>.tar.zst`).
+  `http://<server>/<recipe>/` (`database` file + `<name>.tar.zst`).
 - An image `.tar.zst` contains btrfs send streams (`<name>-rootfs.img`, `-etc.img`, `-var.img`) and
   `<name>-update.sh`. Inspect without root:
   `curl -s URL | zstd -dc | tar -xOf - ./<name>-rootfs.img | btrfs receive --dump`
@@ -141,7 +141,7 @@ How `arkdep-build` processes a recipe (relevant constraints):
   server is installed by then). Accepted (2026-10-08): `dev.containers.cacheVolume: false` (a
   server per container) or `window.restoreWindows: one` would avoid it at a permanent cost.
 - **The build server's registry** (`depends/generic/.../etc/containers`, shared with the bootc
-  images): `192.168.2.50:5000` is insecure (plain HTTP), its sigstore signatures are read from the
+  images): `<server>:5000` is insecure (plain HTTP), its sigstore signatures are read from the
   registry (`registries.d`), and `policy.json` requires them for that registry only (Arch's accept
   anything for the rest: distrobox, dev containers). It overrides `containers-common`'s
   `policy.json`. The key `/etc/pki/containers/distro-builder.pub` comes from `keys/`:

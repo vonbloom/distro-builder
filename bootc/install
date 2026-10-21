@@ -13,7 +13,7 @@
 #     hold the user's directory owned by --uid.
 #
 # Other options:
-#   --host <host>           the image 192.168.2.50:5000/<host>:latest; default from the machine
+#   --host <host>           the image $REGISTRY/<host>:latest; default from the machine
 #                           model, otherwise a menu of the registry's hosts
 #   --image <reference>     another image instead
 #   --hostname <name>       instead of the image's /etc/hostname

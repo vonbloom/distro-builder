@@ -10,7 +10,7 @@ rollback), SELinux. Since 2026-10-09 the hosts only carry the system (kernel, fi
 power, virtualization): the apps live in the userland box, which stays Arch. Plan: build a `t480`
 image on Fedora with the same pipeline, install it on the T480 with `bootc/install` (root
 reformatted, home kept), compare it with the Arch image for a few weeks. If it holds, the P14s
-(reinstalled anyway to leave arkdep) and later yamaha follow.
+(reinstalled anyway to leave arkdep) and later the thin client (`layers.md`) follow.
 
 The trial's recipes are also the first step of phase 2 of `layers.md`: layered Containerfiles with a
 manifest next to each layer instead of arkdep's recipes. The package lists are in `fedora/`, one
