@@ -7,15 +7,16 @@ set -euo pipefail
 cd "$(dirname "$(readlink -f "$0")")"
 source ../lib/builder.sh
 source ../lib/sign.sh
+source ../lib/config.sh
 
 OUTPUT=${1:-/mnt/repo/iso}
 
 # The ISO builder derives from arkdep-builder; it is cheap, so it is rebuilt every time
 ensure_builder arkdep-builder ../image 0
 # keys/: the public keys (arkdep's GPG key, the sigstore key of the bootc images); bootc/: the
-# installer and the registry's client config
+# installer and the registry's client config; SERVER in place of @SERVER@ in them
 podman build --pull=never --no-cache --rm --build-context keys=../keys --build-context bootc=../bootc \
-	-t iso-builder .
+	--build-arg SERVER="$SERVER" -t iso-builder .
 
 mkdir -p "$OUTPUT/.new"
 # Named after the unit (its log lines carry the name); --replace removes a leftover of a killed run

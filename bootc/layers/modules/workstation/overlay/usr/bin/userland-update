@@ -27,7 +27,7 @@ if [[ -z ${USERLAND_UPDATE_LOCKED:-} ]]; then
 	exit "$rc"
 fi
 
-IMAGE=192.168.2.50:5000/userland:latest
+IMAGE=@SERVER@:5000/userland:latest
 yes=0
 dry=0
 playground=0

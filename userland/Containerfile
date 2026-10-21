@@ -3,13 +3,15 @@
 # (build-userland.service); the hosts create the userland and playground boxes from it with the
 # manifest it carries (/usr/share/userland/distrobox.ini) and replace them with each new image
 # instead of upgrading them.
-#   podman build -f userland/Containerfile -t localhost/userland .
+#   podman build -f userland/Containerfile --build-arg SERVER=<address> -t localhost/userland .
 # Build context: the repository root (the [aur] key is read from keys/).
 
 FROM docker.io/archlinux/archlinux:latest
 
+# The build server's address (lib/config.sh), in place of @SERVER@ in distrobox.ini
+ARG SERVER
 # The [aur] repository. Local test runs against an unsigned repository: --build-arg AUR_SIGLEVEL=Never
-ARG AUR_SERVER=http://192.168.2.50/aur
+ARG AUR_SERVER=http://${SERVER}/aur
 ARG AUR_SIGLEVEL=Required
 
 # Repositories after Arch's [core] and [extra], in priority order: [cachyos] (the generic x86_64
@@ -57,7 +59,10 @@ RUN fc-cache -f && \
 # applications of the boxes. install, not COPY: the checkout's modes (664 with the build server's
 # umask 0002) would end up in the image
 RUN --mount=type=bind,source=userland,target=/src \
-    install -D -m 644 /src/distrobox.ini /usr/share/userland/distrobox.ini && \
+    test -n "$SERVER" && \
+    install -d /usr/share/userland && \
+    sed "s|@SERVER@|$SERVER|g" /src/distrobox.ini > /usr/share/userland/distrobox.ini && \
+    chmod 644 /usr/share/userland/distrobox.ini && \
     install -D -m 644 /src/mimeapps.list /etc/xdg/mimeapps.list && \
     install -D -m 644 -t /usr/share/userland/dbus-1/services /src/dbus-1/services/*.service
 

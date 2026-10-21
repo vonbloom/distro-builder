@@ -10,8 +10,8 @@
 # candidate in the registry, its package list in PKGS_DIR/candidate.packages and the serial logs
 # in PKGS_DIR/candidate.log and candidate-update.log, for review; to publish it anyway once
 # reviewed: bootc/CLAUDE.md, "Promoting a candidate by hand".
-# Local test run: REGISTRY=127.0.0.1:5000 PKGS_DIR=/some/dir AUR_SERVER=... AUR_SIGLEVEL=Never
-# ALLOW_UNSIGNED=1 (and the OVMF paths of bootc/test)
+# Local test run: SERVER=<address> REGISTRY=127.0.0.1:5000 PKGS_DIR=/some/dir AUR_SERVER=...
+# AUR_SIGLEVEL=Never ALLOW_UNSIGNED=1 (and the OVMF paths of bootc/test)
 # Test run on the build server: REPOSITORY=test/<recipe> PKGS_DIR=/some/dir (next to the real
 # images, not over them; delete its manifests through the registry API afterwards)
 
@@ -28,7 +28,8 @@ IMAGE=localhost/bootc-$RECIPE
 . lib/push-image.sh
 
 # The boot menu shows the tag; the time tells apart two builds of the same day
-build_args=(--build-arg "RECIPE=$RECIPE" --build-arg "VERSION=$TAG" --build-arg "VERSION_ID=$TAG.$BUILD_TIME")
+build_args=(--build-arg "RECIPE=$RECIPE" --build-arg "SERVER=$SERVER" --build-arg "VERSION=$TAG"
+	--build-arg "VERSION_ID=$TAG.$BUILD_TIME")
 [[ -n ${AUR_SERVER:-} ]] && build_args+=(--build-arg "AUR_SERVER=$AUR_SERVER")
 [[ -n ${AUR_SIGLEVEL:-} ]] && build_args+=(--build-arg "AUR_SIGLEVEL=$AUR_SIGLEVEL")
 

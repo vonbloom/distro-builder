@@ -86,7 +86,8 @@ directory.
 ## Installing a bootc image
 
 `bootc/install` (on the installer ISO as `/root/install`) installs a host's image from the
-registry, in one of two ways:
+registry, in one of two ways. From another Arch live system, or a copy of the script, give it
+the registry: `REGISTRY=<server>:5000` (the ISO's copy has it).
 
 - **A whole disk** (`--disk`, a new machine; everything on the disk is lost): GPT with a 1 GiB ESP,
   a swap partition the size of the RAM (hibernation), an ext4 root (`--root-size`, 64 GiB) and an
@@ -191,7 +192,8 @@ What the layers set up for the user (the arkdep images have the same):
 ## Building and testing on a workstation
 
 ```
-podman build --no-hostname -f bootc/Containerfile --build-arg RECIPE=p14s -t localhost/p14s-bootc .
+podman build --no-hostname -f bootc/Containerfile --build-arg RECIPE=p14s \
+    --build-arg SERVER=<address> -t localhost/p14s-bootc .
 bcvk to-disk --composefs-backend --bootloader systemd --filesystem btrfs --format qcow2 \
     --disk-size 30G --target-transport containers-storage localhost/p14s-bootc disk.qcow2
 ```
@@ -199,12 +201,12 @@ bcvk to-disk --composefs-backend --bootloader systemd --filesystem btrfs --forma
 `bcvk` (release binaries at github.com/bootc-dev/bcvk) installs the image to a disk image from an
 ephemeral VM, rootless. Boot the disk with QEMU + OVMF like `iso/test-vm`.
 
-The whole pipeline (build, test, push) runs locally too, as root with KVM, against a local
-registry: `REGISTRY=127.0.0.1:5000 PKGS_DIR=... AUR_SERVER=... AUR_SIGLEVEL=Never
+The whole pipeline (build, test, push) runs locally too, as root with KVM, against a local registry:
+`SERVER=<address> REGISTRY=127.0.0.1:5000 PKGS_DIR=... AUR_SERVER=... AUR_SIGLEVEL=Never
 ALLOW_UNSIGNED=1`, and on Arch the OVMF paths in the header of `bootc/test`. On the server, test
-runs go to `REPOSITORY=test/<recipe> PKGS_DIR=/var/tmp/...` from a copy of the checkout
-(`git ls-files -z | tar --null -T - -c...`; editing `/home/admin/distro-builder` would make its
-`git pull --ff-only` fail); delete the test manifests through the registry API afterwards.
+runs go to `REPOSITORY=test/<recipe> PKGS_DIR=/var/tmp/...` from a copy of the checkout (`git
+ls-files -z | tar --null -T - -c...`; editing `/home/admin/distro-builder` would make its `git pull
+--ff-only` fail); delete the test manifests through the registry API afterwards.
 
 ## Results (VM, bootc 1.17.0, bcvk 0.21.0, 2026-10-07)
 

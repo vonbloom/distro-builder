@@ -17,7 +17,7 @@ IMAGE=localhost/userland
 # shellcheck source=lib/push-image.sh
 . lib/push-image.sh
 
-build_args=()
+build_args=(--build-arg "SERVER=$SERVER")
 [[ -n ${AUR_SERVER:-} ]] && build_args+=(--build-arg "AUR_SERVER=$AUR_SERVER")
 [[ -n ${AUR_SIGLEVEL:-} ]] && build_args+=(--build-arg "AUR_SIGLEVEL=$AUR_SIGLEVEL")
 

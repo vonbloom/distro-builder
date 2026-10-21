@@ -1,0 +1,3 @@
+# The build server's address, set when the image was built (distro-builder lib/config.sh reads it
+# here: iso/test-vm and iso/test-install on a laptop)
+SERVER=@SERVER@

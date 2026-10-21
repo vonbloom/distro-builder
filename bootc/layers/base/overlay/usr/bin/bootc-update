@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-REPO_URL=http://192.168.2.50  # the build server's /mnt/repo: package lists of the bootc images
+REPO_URL=http://@SERVER@  # the build server's /mnt/repo: package lists of the bootc images
 STATUS=/run/bootc-update/staged
 
 quiet=()

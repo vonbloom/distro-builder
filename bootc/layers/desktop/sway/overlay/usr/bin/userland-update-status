@@ -12,8 +12,8 @@
 set -uo pipefail
 
 SIGNAL=9
-REGISTRY=http://192.168.2.50:5000/v2/userland
-PKGS=http://192.168.2.50/userland
+REGISTRY=http://@SERVER@:5000/v2/userland
+PKGS=http://@SERVER@/userland
 ACCEPT='Accept: application/vnd.oci.image.manifest.v1+json'
 
 case ${1:-} in

@@ -25,6 +25,10 @@ How `arkdep-build` processes a recipe (relevant constraints):
 - `post_install` overlays: the device overlay is copied first, then each `depends` overlay, so a
   depends overlay overwrites a device file with the same path. Use drop-in files instead.
 - `post_install.sh` runs `systemctl preset-all` and `locale-gen`, before subvolumes become read-only.
+- Extensions run in a subshell (`(source ...)`) and arkdep-build has no `set -e`: a failing
+  extension does not stop the build. That is why `image/build` puts the build server's address in
+  place of `@SERVER@` in a copy of `arkdep-build.d` (mounted instead of the checkout), not
+  `post_install.sh`.
 
 ## Gotchas learned the hard way (images)
 

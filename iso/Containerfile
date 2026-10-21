@@ -25,5 +25,10 @@ COPY --from=bootc layers/base/overlay/etc/containers/registries.conf.d/ profile/
 COPY --from=bootc layers/base/overlay/etc/containers/registries.d/ profile/airootfs/etc/containers/registries.d/
 COPY --from=bootc layers/base/overlay/etc/containers/policy.json profile/airootfs/etc/containers/distro-builder-policy.json
 COPY --from=keys distro-builder-sigstore.pub profile/airootfs/etc/pki/containers/distro-builder.pub
+# The build server's address (iso/build, lib/config.sh) in place of @SERVER@: the installers, their
+# arkdep config and the registry's client config
+ARG SERVER
+RUN test -n "$SERVER" && \
+    { grep -rlZF @SERVER@ profile/airootfs || true; } | xargs -0 -r sed -i "s|@SERVER@|$SERVER|g"
 
 ENTRYPOINT ["mkarchiso", "-v", "-w", "/tmp/archiso-tmp", "-o", "/output", "/build/profile"]

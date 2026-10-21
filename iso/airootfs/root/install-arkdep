@@ -7,7 +7,7 @@
 
 set -euo pipefail
 
-REPO_URL=http://192.168.2.50
+REPO_URL=http://@SERVER@
 USER_NAME=roger
 USER_GROUPS=(wheel input video render audio kvm libvirt)
 ESP_LABEL=EFI

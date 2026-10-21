@@ -12,13 +12,21 @@ subjects).
 - Run `ci/check` before giving the user a commit: it must pass. A shellcheck warning that is
   intended gets a `# shellcheck disable=SCxxxx # reason` directive.
 - Each fact lives in one file: usage in the component's `README.md`, implementation notes and
-  pitfalls in its `CLAUDE.md`, which imports the README. When behaviour changes, update the file of
-  the component concerned.
+  pitfalls in its `CLAUDE.md`, which imports the README.
+- Before giving the user a change, check it against that: a change of usage reaches the README of
+  the component and every place that shows it (the main README, other components' READMEs,
+  script headers and usage text, the `Containerfile` header comments with their build commands);
+  a pitfall found on the way goes to the component's `CLAUDE.md`; nothing is written in both;
+  no infrastructure details (below).
 - This repository is public: document only the project itself (what it builds, how and why), in
   files, comments and commit messages. Infrastructure details stay out: addresses, the other
   machines and their jobs, VM and container IDs, the file server and its paths, the cluster, work
   projects. They belong in the private homelab repo (`docs/`), which a document may point to.
-  Docs and comments write the build server's address as `<server>`.
+  Docs and comments write the build server's address as `<server>`, files that go into an image
+  or the ISO as `@SERVER@` (README, Build server).
+- Code that reads such a file straight from the checkout must replace `@SERVER@` too, as
+  `bootc/test` (the policy of its pull) and `install` (the server's registries.d) do: a
+  `policy.json` with the placeholder matches no registry, and unsigned images pass without a word.
 
 ## System overview
 

@@ -4,9 +4,10 @@
 # skopeo pushes them as they are, signed with the server's sigstore key, under one tag; tag_image
 # then points other tags (the date, latest) at it. Sourced; the caller sets -euo pipefail.
 
-# The name clients pull from: the signature names the image it signs (matchRepository in the
-# clients' policy.json), so the push goes to the LAN address, not localhost
-REGISTRY=${REGISTRY:-192.168.2.50:5000}
+# REGISTRY, the name clients pull from: the signature names the image it signs (matchRepository
+# in the clients' policy.json), so the push goes to the LAN address, not localhost
+# shellcheck source=lib/config.sh
+. "$(dirname "${BASH_SOURCE[0]}")/config.sh"
 SIGSTORE_DIR=${SIGSTORE_DIR:-/etc/distro-builder/sigstore}  # private key and its passphrase, root only
 # Pinned: an update of chunkah's gzip could change the bytes of unchanged layers, and every client
 # would download the whole image again

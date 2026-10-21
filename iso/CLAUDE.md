@@ -5,6 +5,10 @@
 - `iso/build` runs `mkarchiso` on the `releng` profile with `arkdep` (from `[arkane]`) added to its
   packages and `iso/airootfs/` copied over. `build-iso.service` takes
   `flock /run/build-image.lock`, like the image builds.
+- The Containerfile puts the `SERVER` build argument in place of `@SERVER@` in everything under
+  `airootfs/` once the files are copied in: `install-arkdep`, `arkdep.config`, `/root/install`
+  and the registry's client config. `bootc/install` checks that its `REGISTRY` was replaced or
+  given: a value starting with `@` is the placeholder.
 - `/root/install` is `bootc/install`, copied in by `iso/build`'s `--build-context bootc=../bootc`
   with the base layer's `registries.conf.d` and `registries.d`, its `policy.json` as
   `/etc/containers/distro-builder-policy.json` (the installer's `podman pull --signature-policy`)

@@ -93,13 +93,16 @@ fail() {
 }
 
 # The clients' policy (the base layer's policy.json: signatures required for the build
-# server's registry, matchRepository) with the public key of this checkout. The signatures are
-# read from the registry as on the clients: /etc/containers/registries.d/50-distro-builder.yaml,
-# installed by ../install
+# server's registry, matchRepository) with the build server's address in place of @SERVER@, as
+# in the images (without it the requirement would match no registry and anything would pass),
+# and the public key of this checkout. The signatures are read from the registry as on the
+# clients: /etc/containers/registries.d/50-distro-builder.yaml, installed by ../install
 pull=(--tls-verify=false)
 if [[ ${ALLOW_UNSIGNED:-0} != 1 ]]; then
-	sed "s|/etc/pki/containers/distro-builder.pub|$PWD/keys/distro-builder-sigstore.pub|" \
-		bootc/layers/base/overlay/etc/containers/policy.json \
+	# shellcheck source=lib/config.sh
+	. lib/config.sh
+	sed -e "s|/etc/pki/containers/distro-builder.pub|$PWD/keys/distro-builder-sigstore.pub|" \
+		-e "s|@SERVER@|$SERVER|g" bootc/layers/base/overlay/etc/containers/policy.json \
 		>"$work/policy.json"
 	pull+=(--signature-policy "$work/policy.json")
 fi

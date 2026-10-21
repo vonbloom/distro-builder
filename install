@@ -2,7 +2,9 @@
 # Install the build units, the status page (generator and build trigger) and the web server, and
 # enable the timers (the userland image's weekly too)
 # (run as root on the build server). Idempotent: run it again after changes to systemd/ or serve/.
-# Usage: [ARKDEP_RECIPES="p14s ..."] [BOOTC_RECIPES="t480 ..."] install
+# Usage: [SERVER=<address>] [ARKDEP_RECIPES="p14s ..."] [BOOTC_RECIPES="t480 ..."] install
+# SERVER, the server's address as the clients reach it, goes to /etc/distro-builder/config, which
+# the builds read (lib/config.sh); without it that file must exist already.
 # Weekly builds: the arkdep images of ARKDEP_RECIPES (default p14s) and the bootc images of
 # BOOTC_RECIPES (default t480), what each laptop runs. The timers of the other recipes are disabled:
 # every recipe's builds stay available by hand (systemctl start, or the status page).
@@ -10,6 +12,15 @@
 set -euo pipefail
 
 cd "$(dirname "$(readlink -f "$0")")"
+
+server_env=${SERVER:-}
+# shellcheck source=lib/config.sh
+. lib/config.sh
+if [[ -n $server_env ]]; then
+	install -d -m 755 /etc/distro-builder
+	printf '# The build server address as the clients reach it (distro-builder lib/config.sh)\nSERVER=%s\n' \
+		"$SERVER" >/etc/distro-builder/config
+fi
 
 read -ra arkdep_recipes <<<"${ARKDEP_RECIPES-p14s}"
 read -ra bootc_recipes <<<"${BOOTC_RECIPES-t480}"
@@ -30,8 +41,10 @@ systemd-tmpfiles --create /etc/tmpfiles.d/distro-status.conf
 install -m 644 serve/distro-trigger.rules /etc/polkit-1/rules.d/50-distro-trigger.rules
 # lib/push-image.sh signs the bootc and userland images with a sigstore key and skopeo writes the
 # signatures to the registry next to them: same registries.d file as the laptops' images
-install -D -m 644 bootc/layers/base/overlay/etc/containers/registries.d/50-distro-builder.yaml \
-	/etc/containers/registries.d/50-distro-builder.yaml
+install -d /etc/containers/registries.d
+sed "s|@SERVER@|$SERVER|g" bootc/layers/base/overlay/etc/containers/registries.d/50-distro-builder.yaml \
+	>/etc/containers/registries.d/50-distro-builder.yaml
+chmod 644 /etc/containers/registries.d/50-distro-builder.yaml
 [[ -r /etc/distro-builder/sigstore/distro-builder.private ]] ||
 	echo "No sigstore key in /etc/distro-builder/sigstore (homelab vault): the bootc and userland builds will fail" >&2
 systemctl daemon-reload

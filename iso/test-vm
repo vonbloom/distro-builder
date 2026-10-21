@@ -9,7 +9,9 @@
 
 set -euo pipefail
 
-REPO_URL=http://192.168.2.50
+# REPO_URL, from the build server's address
+# shellcheck source=lib/config.sh
+. "$(dirname "$(readlink -f "$0")")/../lib/config.sh"
 OVMF=/usr/share/edk2/x64
 DIR=${XDG_CACHE_HOME:-$HOME/.cache}/iso-test # not /tmp: the installed disk takes ~10 GB
 

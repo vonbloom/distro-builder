@@ -2,7 +2,8 @@
 # and the host itself, built and pushed to the registry by bootc/build (build-bootc@<recipe>.service).
 # Structure taken from the Arch image of https://github.com/bootcrew/mono, with CachyOS v3
 # repositories, the linux-cachyos kernel, and bootc from the [aur] repository (aur/local/bootc).
-#   podman build --no-hostname -f bootc/Containerfile --build-arg RECIPE=p14s -t localhost/p14s-bootc .
+#   podman build --no-hostname -f bootc/Containerfile --build-arg RECIPE=p14s \
+#     --build-arg SERVER=<address> -t localhost/p14s-bootc .
 # (--no-hostname: otherwise /etc/hostname is a bind mount and the host cannot install its own)
 # Build context: the repository root (the layers and the keys are read from it).
 
@@ -28,9 +29,11 @@ RUN grep "= */var" /etc/pacman.conf | sed "/= *\/var/s/.*=// ; s/ //" | xargs -n
 
 FROM base AS system
 ARG RECIPE=p14s
+# The build server's address (lib/config.sh): apply-layers puts it in place of @SERVER@
+ARG SERVER
 # The [aur] repository, only for this step (the image's pacman.conf stays the base layer's). Local
 # test runs against an unsigned repository: --build-arg AUR_SIGLEVEL=Never
-ARG AUR_SERVER=http://192.168.2.50/aur
+ARG AUR_SERVER=http://${SERVER}/aur
 ARG AUR_SIGLEVEL=Required
 
 # bootc (built without SELinux support, see aur/local/bootc) and the other tools bootc install

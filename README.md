@@ -46,7 +46,7 @@ systemd/  build-image@.{service,timer}, build-bootc@.{service,timer}, build-aur.
 lib/      builder.sh (ensure_builder: rebuild a podman builder image when older than 7 days),
           sign.sh (detached GPG signatures with the server key), push-image.sh (chunkah + signed
           skopeo push to the registry, tag_image: bootc and userland images), retry-once (a build
-          unit's single retry, build-bootc@)
+          unit's single retry, build-bootc@), config.sh (the server's address, below)
 keys/     distro-builder.asc: public signing key, trusted by arkdep, pacman and the installer;
           distro-builder-sigstore.pub: public key of the bootc image signatures;
           cachyos.asc: the CachyOS repositories' key (bootc images)
@@ -81,14 +81,22 @@ never on the laptops. Requirements:
   role `notify_ha`), for the Home Assistant notifications;
 - port 5000 reachable from the LAN for the container registry (the bootc and userland images);
 - KVM (`/dev/kvm`; in a VM, CPU type `host` for nested KVM), `qemu-system-x86` and `ovmf` for the
-  boot test of the bootc images (`bootc/test`), set up by the homelab repo too.
+  boot test of the bootc images (`bootc/test`), set up by the homelab repo too;
+- its address as the clients reach it, in `/etc/distro-builder/config` (`SERVER=<address>`,
+  written by `install` when run with `SERVER=`).
+
+The address is the only value the builds take from outside the repository: the files that go
+into an image or the ISO carry `@SERVER@` in its place, replaced when they are built
+(`lib/config.sh`, read by every build script). The images keep it in
+`/usr/lib/distro-builder/config`, where `iso/test-vm` and `iso/test-install` find it on a laptop.
+A local test run sets `SERVER` in the environment instead.
 
 Here the server is a VM that the homelab repo rebuilds from scratch rather than backing it up:
 Ansible creates it, clones this repository and runs `install`. To set up a server by hand:
 
 ```sh
 git clone https://github.com/vonbloom/distro-builder.git ~/distro-builder
-sudo ~/distro-builder/install   # or: sudo ARKDEP_RECIPES="p14s t480" BOOTC_RECIPES= ~/distro-builder/install
+sudo SERVER=<address> ~/distro-builder/install   # also ARKDEP_RECIPES="p14s t480" BOOTC_RECIPES=
 ```
 
 `install` links the units in `systemd/` into `/etc/systemd/system`, the quadlets

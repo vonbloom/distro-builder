@@ -27,6 +27,8 @@
   (seen in the first test build); the live userland had 3.7 GB of it.
 - Files go in with `install -m 644` from a bind mount, not `COPY`: the checkout's modes (664, umask
   0002 on the build server) would end up in the image (the same trap as bootc/apply-layers).
+- `distrobox.ini` carries `@SERVER@`; the Containerfile writes it to the image with the `SERVER`
+  build argument in its place.
 - `distrobox.ini`: values without spaces are sourced by `distrobox assemble` (`$(id -u)` in
   `additional_flags` works); `exported_bins_path` is left at its default (`$HOME/.local/bin`).
   Exports only happen when a box is created, which is fine: every update recreates it.

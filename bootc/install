@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Install a bootc image from the build server's registry. Run as root from the installer ISO
 # (/root/install, which has podman, the registry's config and the signature key), or from any Arch
-# live system (podman is installed then: cow_spacesize=2G).
+# live system (podman is installed then: cow_spacesize=2G) with REGISTRY=<server>:5000.
 #
 # A whole disk (a new machine: everything on the disk is lost):
 #   install --disk /dev/nvme0n1
@@ -31,7 +31,7 @@
 
 set -euo pipefail
 
-REGISTRY=192.168.2.50:5000
+REGISTRY=${REGISTRY:-@SERVER@:5000}  # the ISO's build puts the server's address here
 IMAGE='' HOST='' DISK='' ROOT='' ESP='' HOME_PART='' SWAP='' HOSTNAME_NEW='' PASSWORD_FILE=''
 ROOT_SIZE=64G YES=0 KARGS_EXTRA=()
 USER_NAME=roger USER_UID=1000
@@ -40,6 +40,7 @@ TARGET=/mnt/bootc-target HOMEMNT=/mnt/bootc-home
 STORAGE_ON_HOME=0 VARTMP_BOUND=0
 
 die() { echo "error: $*" >&2; exit 1; }
+[[ $REGISTRY != @* ]] || die "no registry: run it from the installer ISO, or with REGISTRY=<server>:5000"
 while (($#)); do
 	case $1 in
 	--yes) YES=1; shift; continue ;;

@@ -189,6 +189,8 @@
   - No `panic=` on the command line: a kernel panic hangs. An unattended machine with automatic
     reboots (the thin client of `docs/layers.md`) wants `panic=`. The first update to an image
     with counting is finalized by the image before it: not counted.
+- `apply-layers` puts the `SERVER` build argument in place of `@SERVER@` in the staged overlay
+  files (`grep -rlZF | xargs sed -i`, which keeps their mode), and refuses to run without it.
 - `apply-layers` copies the overlays like arkdep-build's `cp -r`: `tar --no-same-owner
   --no-same-permissions` into a staging directory, then `cp -r` to `/` (existing files and
   directories keep owner and mode; plain `tar -xp`: README, problems found). `COPY` gave existing
