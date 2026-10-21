@@ -53,7 +53,7 @@ journalctl -fu build-image@p14s
 `image/build` runs `arkdep-build` in the `arkdep-builder` image (arkdep and the arkane keyring
 built from `arkanelinux/pkgbuild`) and writes to `/mnt/repo/<recipe>`, then rewrites the
 `database` file (newest first). Builds started together by both timers run one after the other
-(`flock`). A failed build leaves the repository untouched.
+(`lib/build-lock`). A failed build leaves the repository untouched.
 
 ## Retention
 

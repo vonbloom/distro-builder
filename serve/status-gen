@@ -42,6 +42,7 @@ UNIT_PROPS = [
     "Result",
     "InactiveExitTimestamp",
     "InactiveEnterTimestamp",
+    "ExecStart",
 ]
 TIMER_PROPS = ["NextElapseUSecRealtime", "LastTriggerUSec"]
 # Journal messages of PID 1 about a unit's jobs (catalog IDs)
@@ -49,6 +50,8 @@ MSG_STARTING = "7d4958e842da4a758f6c1cdc7b36dcc5"
 MSG_JOB_DONE = "39f53479d3a045ac8e11786248231fbf"
 MSG_JOB_FAILED = "be02cf6855d2428ba40df7e9d022f03d"
 MSG_UNIT_FAILED = "d9b373ed55a64feb8242e02dbe79a49c"
+# Logged by lib/build-lock once a build has the lock: the start of the build itself
+LOCK_TAKEN = "Build lock taken"
 
 
 def run(cmd):
@@ -144,6 +147,19 @@ def last_run_from_journal(unit):
     return started, finished, result
 
 
+def lock_taken(unit, since):
+    """When the run started at `since` got the build lock (lib/build-lock), the start of the
+    build after any wait for another one; None while it waits, and for runs from before
+    lib/build-lock."""
+    for line in run(["journalctl", "-u", unit, "--since", f"@{since}", "--grep", f"^{LOCK_TAKEN}$",
+                     "-o", "json", "-n", "1", "--no-pager"]).splitlines():
+        try:
+            return int(json.loads(line)["__REALTIME_TIMESTAMP"]) // 1_000_000
+        except (ValueError, KeyError):
+            continue
+    return None
+
+
 def unit_status(unit, timer, now):
     p = show(unit, UNIT_PROPS)
     if p.get("LoadState") not in ("loaded",):
@@ -162,11 +178,18 @@ def unit_status(unit, timer, now):
         state = "ok"
     else:
         state = "never"
+    # The duration is the build's own: from when it got the lock, not from when the unit started
+    # and waited for the builds before it (queued). The unit's loaded ExecStart tells whether it
+    # takes the lock through lib/build-lock (until a daemon-reload, a unit runs its old command)
+    build_started = lock_taken(unit, started) if started else None
+    queued = (state == "running" and build_started is None
+              and "lib/build-lock" in p.get("ExecStart", ""))
+    begin = build_started or started
     duration = None
-    if started and state == "running":
-        duration = now - started
-    elif started and finished and finished >= started:
-        duration = finished - started
+    if state == "running" and begin and not queued:
+        duration = now - begin
+    elif state != "running" and begin and finished and finished >= begin:
+        duration = finished - begin
     t = show(timer, TIMER_PROPS) if timer else {}
     kind, target = unit_kind(unit)
     return {
@@ -177,6 +200,8 @@ def unit_status(unit, timer, now):
         "state": state,
         "result": result,
         "started": started,
+        "build_started": build_started,
+        "queued": queued,
         "finished": finished,
         "duration": duration,
         "next": epoch(t.get("NextElapseUSecRealtime")),

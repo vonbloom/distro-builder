@@ -3,8 +3,8 @@
 @README.md
 
 - `iso/build` runs `mkarchiso` on the `releng` profile with `arkdep` (from `[arkane]`) added to its
-  packages and `iso/airootfs/` copied over. `build-iso.service` takes
-  `flock /run/build-image.lock`, like the image builds.
+  packages and `iso/airootfs/` copied over. `build-iso.service` takes the build lock
+  (`lib/build-lock`), like the image builds.
 - The Containerfile puts the `SERVER` build argument in place of `@SERVER@` in everything under
   `airootfs/` once the files are copied in: `install-arkdep`, `arkdep.config`, `/root/install`
   and the registry's client config. `bootc/install` checks that its `REGISTRY` was replaced or

@@ -14,6 +14,6 @@ Type=oneshot
 ExecStartPre=-/usr/bin/flock /run/distro-builder-git.lock /usr/sbin/runuser -u admin -- git -C /home/admin/distro-builder pull --ff-only
 # One build at a time with the other builds, prune included (see build-bootc@.service). bootc/prune
 # handles any repository of the registry: the userland image keeps its package lists elsewhere
-ExecStart=/usr/bin/flock /run/build-image.lock /bin/sh -c '/home/admin/distro-builder/userland/build && PKGS_DIR=/mnt/repo/userland /home/admin/distro-builder/bootc/prune userland'
+ExecStart=/home/admin/distro-builder/lib/build-lock /bin/sh -c '/home/admin/distro-builder/userland/build && PKGS_DIR=/mnt/repo/userland /home/admin/distro-builder/bootc/prune userland'
 ExecStartPost=/usr/bin/env REPO_PATH=/mnt/repo/userland KIND=userland /home/admin/distro-builder/image/notify-image userland
 TimeoutStartSec=3h

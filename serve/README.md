@@ -25,7 +25,9 @@ service, rolling back if it does not start):
 the directory listing (still available under each directory):
 
 - **Builds**: state, last run, duration and next run of each build unit, with its log (follows the
-  end while the build runs) and an **Executa** button to start it now;
+  end while the build runs) and an **Executa** button to start it now. The builds run one at a
+  time: one started while another runs shows **En cua** until it gets its turn, and its duration
+  is its own, without that wait;
 - **Images** per recipe: size, packages, kernel and the package changes since the previous image
   (bootc and userland from the registry; if it cannot be read, the page says why instead);
 - **Installer**: the ISO with its SHA-256; **`[aur]`**: packages and versions.

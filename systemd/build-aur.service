@@ -14,7 +14,7 @@ ExecStartPre=-/usr/bin/flock /run/distro-builder-git.lock /usr/sbin/runuser -u a
 # One build at a time with the images: the bootc builds install bootc from [aur] (no repository
 # update during their pacman -Sy), and the 8 GB VM cannot hold a bootc build (~7 GB peak with
 # podman load, ~3 GB since the skopeo push) and a Rust compile at once
-ExecStart=/usr/bin/flock /run/build-image.lock /home/admin/distro-builder/aur/build
+ExecStart=/home/admin/distro-builder/lib/build-lock /home/admin/distro-builder/aur/build
 # New upstream releases of the own PKGBUILDs (aur/local), reported once; never fails the unit
 ExecStartPost=-/home/admin/distro-builder/aur/check-upstream
 TimeoutStartSec=3h

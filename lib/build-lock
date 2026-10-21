@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Usage: build-lock <command>...
+# Run a build unit's command under /run/build-image.lock, one build at a time (memory, and the
+# registry's garbage collection must never run during a push). A unit started while another build
+# runs waits here; once it has the lock it logs "Build lock taken", which serve/status-gen takes as
+# the start of the build itself: the duration it shows leaves the wait out.
+
+if [[ ${BUILD_LOCK_HELD:-} != 1 ]]; then
+	BUILD_LOCK_HELD=1 exec flock /run/build-image.lock "$0" "$@"
+fi
+unset BUILD_LOCK_HELD
+echo "Build lock taken"
+exec "$@"

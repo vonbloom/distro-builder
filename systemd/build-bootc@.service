@@ -15,7 +15,7 @@ ExecStartPre=-/usr/bin/flock /run/distro-builder-git.lock /usr/sbin/runuser -u a
 # One build at a time with the other builds (memory, see build-aur.service). prune too: its garbage
 # collection must not run during another recipe's push. Both under one lock: with prune in its own
 # flock, a queued build took the lock in between and this unit waited for it, shown as running
-ExecStart=/home/admin/distro-builder/lib/retry-once %n /usr/bin/flock /run/build-image.lock /bin/sh -c '/home/admin/distro-builder/bootc/build "$$1" && /home/admin/distro-builder/bootc/prune "$$1"' sh %i
+ExecStart=/home/admin/distro-builder/lib/retry-once %n /home/admin/distro-builder/lib/build-lock /bin/sh -c '/home/admin/distro-builder/bootc/build "$$1" && /home/admin/distro-builder/bootc/prune "$$1"' sh %i
 ExecStartPost=/usr/bin/env REPO_PATH=/mnt/repo/bootc/%i KIND=bootc /home/admin/distro-builder/image/notify-image %i
 TimeoutStartSec=6h
 # A failed build is retried once, half an hour later and without the lock in between (a mirror or

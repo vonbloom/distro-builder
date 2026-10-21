@@ -124,6 +124,9 @@ footer { margin-top: 32px; font-size: 13px; }
 "use strict";
 const REFRESH_MS = 30000, LOG_REFRESH_MS = 10000;
 const STATE = { ok: "Correcte", running: "En marxa", failed: "Error", never: "Mai executat" };
+// A running unit that waits for another build (status-gen: queued) has no duration yet
+const stateLabel = u => u.queued ? "En cua" : STATE[u.state] || u.state;
+const buildStart = u => u.queued ? u.started : u.build_started || u.started;
 const rtf = new Intl.RelativeTimeFormat("ca", { numeric: "auto" });
 let data = null, openLog = null, logTimer = null;
 const openDiffs = new Set();
@@ -193,9 +196,10 @@ function registryImages(title, name, images, pkgsDir, unsignedTitle) {
 function renderUnits() {
   const box = document.getElementById("units");
   box.replaceChildren(...data.units.map(u => h("div", { class: "card" },
-    h("h3", {}, unitTitle(u), h("span", { class: `pill ${u.state}` }, STATE[u.state] || u.state)),
+    h("h3", {}, unitTitle(u), h("span", { class: `pill ${u.state}` }, stateLabel(u))),
     h("dl", { class: "kv" },
-      h("dt", {}, u.state === "running" ? "Començat" : "Última"), h("dd", { title: when(u.started) }, u.started ? `${ago(u.started)}` : "—"),
+      h("dt", {}, u.queued ? "En cua des de" : u.state === "running" ? "Començat" : "Última"),
+      h("dd", { title: when(buildStart(u)) }, buildStart(u) ? `${ago(buildStart(u))}` : "—"),
       h("dt", {}, "Durada"), h("dd", {}, dur(u.duration)),
       h("dt", {}, "Propera"), h("dd", { title: when(u.next) }, u.next ? ago(u.next) : u.scheduled ? "—" : "manual"),
       u.state === "failed" ? [h("dt", {}, "Resultat"), h("dd", {}, u.result)] : null),
@@ -340,7 +344,7 @@ async function fetchLog() {
   } catch (e) { pre.textContent = `No s'ha pogut carregar el registre (${e.message})`; }
   if (atEnd) pre.scrollTop = pre.scrollHeight;
   const u = data && data.units.find(x => x.unit === openLog);
-  document.getElementById("dlg-meta").textContent = u ? `${STATE[u.state]} · ${when(u.started)} · ${dur(u.duration)}` : "";
+  document.getElementById("dlg-meta").textContent = u ? `${stateLabel(u)} · ${when(buildStart(u))} · ${dur(u.duration)}` : "";
 }
 function showLog(unit) {
   openLog = unit;

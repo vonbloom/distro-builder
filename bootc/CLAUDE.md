@@ -75,8 +75,9 @@
     (`systemd[<pid>]` other than 1, `USER_MANAGER`) do not count as failures: in root's,
     pipewire's `ConditionUser=!root` left wireplumber and filter-chain with "Dependency failed"
     (the first two test builds, 2026-10-18). No user manager runs for root on a real machine.
-- The shared lock (`/run/build-image.lock`) is there for memory, and because the registry's
-  `garbage-collect` must never run during a push (it deletes blobs of unfinished uploads). prune
+- The shared lock (`/run/build-image.lock`, taken through `lib/build-lock`) is there for memory,
+  and because the registry's `garbage-collect` must never run during a push (it deletes blobs of
+  unfinished uploads). prune
   deletes manifests through the API (`REGISTRY_STORAGE_DELETE_ENABLED`), runs
   `registry garbage-collect --delete-untagged` in the `distro-registry` container and then restarts
   it: registry:2 caches blob descriptors in memory, and without the restart a later push skipped

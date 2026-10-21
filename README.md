@@ -46,7 +46,8 @@ systemd/  build-image@.{service,timer}, build-bootc@.{service,timer}, build-aur.
 lib/      builder.sh (ensure_builder: rebuild a podman builder image when older than 7 days),
           sign.sh (detached GPG signatures with the server key), push-image.sh (chunkah + signed
           skopeo push to the registry, tag_image: bootc and userland images), retry-once (a build
-          unit's single retry, build-bootc@), config.sh (the server's address, below)
+          unit's single retry, build-bootc@), build-lock (one build at a time), config.sh (the
+          server's address, below)
 keys/     distro-builder.asc: public signing key, trusted by arkdep, pacman and the installer;
           distro-builder-sigstore.pub: public key of the bootc image signatures;
           cachyos.asc: the CachyOS repositories' key (bootc images)
