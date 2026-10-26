@@ -17,7 +17,7 @@ new machine.
 `<server>` stands for the [build server](#build-server)'s address, here and in the other
 documents.
 
-Each directory has a `README.md` with its usage and a `CLAUDE.md` with implementation notes and the
+Each directory has a `README.md` with its usage and an `AGENTS.md` with implementation notes and the
 pitfalls already hit; [`serve/README.md`](serve/README.md) covers the web server, the status page
 and the registry.
 

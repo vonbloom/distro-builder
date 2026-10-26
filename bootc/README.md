@@ -3,7 +3,7 @@
 [bootc](https://github.com/bootc-dev/bootc) images of the hosts, replacing arkdep (trial since
 2026-10-07), based on the Arch image of [bootcrew/mono](https://github.com/bootcrew/mono). The T480
 runs bootc (`t480`, built weekly) and the P14s stays on arkdep until it moves (`p14s` bootc image by
-hand); `../install` sets the schedules. Implementation notes and pitfalls: `CLAUDE.md` in this
+hand); `../install` sets the schedules. Implementation notes and pitfalls: `AGENTS.md` in this
 directory.
 
 - `layers/`: what goes into the images, one directory per layer (`docs/layers.md`): `base` (boot,

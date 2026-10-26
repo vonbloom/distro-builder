@@ -15,7 +15,7 @@
   and `keys/distro-builder-sigstore.pub`; `podman` is in `packages.x86_64`. mkarchiso copies
   `airootfs/` before installing the packages, so no file there may be one a package ships:
   `etc/containers/policy.json` failed the build (containers-common, "exists in filesystem",
-  2026-10-18). Notes on it: `bootc/CLAUDE.md`.
+  2026-10-18). Notes on it: `bootc/AGENTS.md`.
 - `iso/test-install` drives it over the serial console (the ISO's kernel booted with `-kernel` to
   add `console=ttyS0`; QEMU user networking, the installed system reached by SSH on port 2222 with
   a throwaway key put in its home). Its pitfalls: wait for the live shell's prompt before typing

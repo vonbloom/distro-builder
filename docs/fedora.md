@@ -91,7 +91,7 @@ The overlays are mostly configuration and carry over. What does not:
   preset lists our enables and disables only, and Fedora's presets do the rest. It disables
   `bootc-fetch-apply-updates.timer` (enabled by `85-bootc.preset`: it upgrades and reboots on its
   own; `bootc-update.timer` stages instead) and whatever the base enables that we do not want:
-  `sssd`, `avahi-daemon`, `systemd-homed`, `systemd-oomd` (left out on purpose: `image/CLAUDE.md`,
+  `sssd`, `avahi-daemon`, `systemd-homed`, `systemd-oomd` (left out on purpose: `image/AGENTS.md`,
   memory tuning), `kmsconvt@`, `irqbalance`.
 - **nftables**: Fedora's `nftables.service` loads `/etc/sysconfig/nftables.conf`, not
   `/etc/nftables.conf`. Link the first to the second (`fw` and the `include` of `/etc/nftables.d`

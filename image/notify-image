@@ -2,7 +2,7 @@
 # Usage: notify-image <recipe>
 # Report the newest image of a recipe to Home Assistant (notify-ha, from the homelab repo), with
 # the package changes since the previous image. A package count that drops by more than 20 % is
-# reported as a warning: arkdep-build can silently skip the package stage (see CLAUDE.md).
+# reported as a warning: arkdep-build can silently skip the package stage (see AGENTS.md).
 # build-bootc@ and build-userland use it too: REPO_PATH=/mnt/repo/bootc/<recipe> KIND=bootc,
 # REPO_PATH=/mnt/repo/userland KIND=userland.
 

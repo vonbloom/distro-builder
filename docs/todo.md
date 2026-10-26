@@ -78,7 +78,7 @@ from the packages' build dates). 2026-10-07 -> 2026-10-08 shared none: the owner
 layer, a one-off. Still to see on a regular weekly build: which layers change on every build
 (VERSION_ID with the time in os-release, install dates in the pacman database, the initramfs?).
 The initramfs (46 MB) did change on every build until 2026-10-18: it carried the Arch container
-image's `VERSION_ID` (`initrd-release`); now only when a file it holds changes (bootc/CLAUDE.md).
+image's `VERSION_ID` (`initrd-release`); now only when a file it holds changes (bootc/AGENTS.md).
 
 - [x] **Boot test before publishing `latest`** (2026-10-18). The composefs backend sets up no
       boot counting (bootc docs, `bootc-boot-failure-detection.7.md`: "likely to be added in the
@@ -119,7 +119,7 @@ image's `VERSION_ID` (`initrd-release`); now only when a file it holds changes (
       `systemd-bless-boot` marks it good after a boot without a failed unit
       (`systemd-boot-check-no-failures`), and after three boots that do not get there systemd-boot
       boots the previous image again; `bootc upgrade` does not stage the failed image again, and
-      `bootc-update` and the waybar indicator report it (`bootc/CLAUDE.md`). `bootc/test
+      `bootc-update` and the waybar indicator report it (`bootc/AGENTS.md`). `bootc/test
       --fallback latest <candidate>` tests it on every build: the candidate installed following
       latest, `bootc-update` staging latest with `systemd.unit=reboot.target` added to its entry,
       three boots that reboot at once, then the candidate again. The update test checks that the
@@ -148,7 +148,7 @@ image's `VERSION_ID` (`initrd-release`); now only when a file it holds changes (
       the boot transaction, so the boot test does not see them. Fixed on 2026-10-18, to check on
       the T480 with the next image: btrbk is out of the bootc layers (the home backup replaces it);
       wait-online was started on 2026-10-17 by `archlinux-keyring-wkd-sync` (weekly) and timed out
-      on the unplugged Ethernet port: `--any`, and the keyring sync masked (`bootc/CLAUDE.md`).
+      on the unplugged Ethernet port: `--any`, and the keyring sync masked (`bootc/AGENTS.md`).
       Checked after the reinstall (`t480:2026-10-18`): `running`.
 - [x] **bootc installer** (2026-10-18): `bootc/install` installs a whole disk (`--disk`: ESP, swap
       the size of the RAM, ext4 root with fs-verity, ext4 home) or keeps a home partition
@@ -161,7 +161,7 @@ image's `VERSION_ID` (`initrd-release`); now only when a file it holds changes (
       from `bootc/layers`, boot test passed on the server with the ext4 root): both ways pass
       (install 67 s, boot 7.8-8.1 s, `ROOT: clean` from the initramfs' fsck, the home kept). The
       first ISO build failed on `etc/containers/policy.json` in `airootfs/` (containers-common
-      ships it; `iso/CLAUDE.md`), now `distro-builder-policy.json`. `iso/test-install` with the
+      ships it; `iso/AGENTS.md`), now `distro-builder-policy.json`. `iso/test-install` with the
       `distro-installer-2026.10.18` ISO and its own installer passed too (install 62 / 49 s, boot
       8.2 / 7.7 s). The T480's first try failed: `bootc install` filled the live overlay's `/var/tmp`
       (256 MiB; the test had booted with `cow_spacesize=2G`), now bound to the storage. The T480
@@ -555,7 +555,7 @@ Upstream issues with a local workaround, to drop when they are fixed in a bootc 
 - [ ] ESP mounted read-only by bootc (`systemd.mount-extra=...:/boot:auto:ro`), which breaks
       systemd-boot's own units (none reported yet): `systemd-boot-random-seed` is masked, and
       `systemd-boot-update` and `systemd-bless-boot` remount it read-write in their own process
-      (`bootc/CLAUDE.md`). Not ours alone: any composefs + systemd-boot system that uses them.
+      (`bootc/AGENTS.md`). Not ours alone: any composefs + systemd-boot system that uses them.
 
 ## bootcrew upstream
 
@@ -610,7 +610,7 @@ other users of the Arch image.
 
 ## Memory and scheduling
 
-- [ ] **systemd-oomd**, left out of the cachyos-settings subset (see CLAUDE.md, Memory tuning):
+- [ ] **systemd-oomd**, left out of the cachyos-settings subset (see AGENTS.md, Memory tuning):
       revisit only if the system ever thrashes. It would need the `userland` distrobox protected
       (`ManagedOOMPreference=avoid` on a dedicated slice, monitoring `user@1000.service` instead
       of `user-.slice`) and testing that it kills a dev container and not userland.

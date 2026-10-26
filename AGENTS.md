@@ -11,12 +11,13 @@ subjects).
   CLAUDE.md. Never build on the laptops.
 - Run `ci/check` before giving the user a commit: it must pass. A shellcheck warning that is
   intended gets a `# shellcheck disable=SCxxxx # reason` directive.
+- Never add anything agent-related (Copilot, Claude, etc.) to commit messages or as a co-author.
 - Each fact lives in one file: usage in the component's `README.md`, implementation notes and
-  pitfalls in its `CLAUDE.md`, which imports the README.
+  pitfalls in its `AGENTS.md`, which imports the README.
 - Before giving the user a change, check it against that: a change of usage reaches the README of
   the component and every place that shows it (the main README, other components' READMEs,
   script headers and usage text, the `Containerfile` header comments with their build commands);
-  a pitfall found on the way goes to the component's `CLAUDE.md`; nothing is written in both;
+  a pitfall found on the way goes to the component's `AGENTS.md`; nothing is written in both;
   no infrastructure details (below).
 - This repository is public: document only the project itself (what it builds, how and why), in
   files, comments and commit messages. Infrastructure details stay out: addresses, the other

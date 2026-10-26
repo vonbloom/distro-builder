@@ -32,7 +32,7 @@ How `arkdep-build` processes a recipe (relevant constraints):
 
 ## Gotchas learned the hard way (images)
 
-What the recipes share with the bootc layers has its notes in `bootc/CLAUDE.md`, "What the
+What the recipes share with the bootc layers has its notes in `bootc/AGENTS.md`, "What the
 layers hold": NoExtract, mirrors, dracut, memory, the journal, TLP, firmware, the lid, the
 firewall, the registry's client, the userland boxes and the sway session. The files are the same
 (here in `depends/generic` and `depends/sway`, the scripts in `/usr/local/bin`).

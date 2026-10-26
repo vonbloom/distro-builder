@@ -9,7 +9,7 @@
 # (notify-image, the status page, bootc-update). A failed test leaves latest as it was, the
 # candidate in the registry, its package list in PKGS_DIR/candidate.packages and the serial logs
 # in PKGS_DIR/candidate.log and candidate-update.log, for review; to publish it anyway once
-# reviewed: bootc/CLAUDE.md, "Promoting a candidate by hand".
+# reviewed: bootc/AGENTS.md, "Promoting a candidate by hand".
 # Local test run: SERVER=<address> REGISTRY=127.0.0.1:5000 PKGS_DIR=/some/dir AUR_SERVER=...
 # AUR_SIGLEVEL=Never ALLOW_UNSIGNED=1 (and the OVMF paths of bootc/test)
 # Test run on the build server: REPOSITORY=test/<recipe> PKGS_DIR=/some/dir (next to the real
@@ -42,7 +42,7 @@ podman build --pull=newer --no-cache --no-hostname -f bootc/Containerfile "${bui
 	-t "$IMAGE" .
 
 # A stage of the recipe that installed nothing (arkdep-build once skipped one without a word,
-# image/CLAUDE.md) shows as far fewer packages than the previous image: not pushed. A recipe that
+# image/AGENTS.md) shows as far fewer packages than the previous image: not pushed. A recipe that
 # drops that many packages on purpose: ALLOW_FEWER_PACKAGES=1 (systemctl set-environment for the
 # unit, unset-environment afterwards)
 packages=$PKGS_DIR/candidate.packages

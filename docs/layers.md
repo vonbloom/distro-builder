@@ -102,7 +102,7 @@ to a user account. PulseAudio is fine; upstream it is in maintenance mode.
 - **Updates:** `bootc-update.timer` stages the new image; the thin client also needs an automatic
   reboot at night. The laptops keep the reboot to the user. With an automatic reboot, the boot test
   before publishing `latest` (`todo.md`, bootc builds) becomes a prerequisite, and so does the
-  boot counting of the base layer (since 2026-10-19, `bootc/CLAUDE.md`): after three failed boots
+  boot counting of the base layer (since 2026-10-19, `bootc/AGENTS.md`): after three failed boots
   systemd-boot goes back to the previous image. A kernel panic and emergency mode wait for a
   reset, though: the thin client needs `panic=` (a karg of its host layer) and a reboot out of
   emergency mode, or its services stay down until someone power cycles it.
