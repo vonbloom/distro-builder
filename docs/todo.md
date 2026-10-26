@@ -548,10 +548,12 @@ Upstream issues with a local workaround, to drop when they are fixed in a bootc 
       - The maintainer (jjm) has answered no comment since 2025-11; nvchecker bumps the version
         (1.17.1 came after our comment, without the fix), so every release since 1.16.11 fails
         in a clean chroot.
-      - Emailed the maintainer on 2026-10-20 (the comment's patch, offer to co-maintain). No answer
-        by 2026-11-03: decide whether to file an orphan request and adopt it (`aur/local/bootc`
-        would become the AUR package). Not out-of-date flags (new versions only) nor a duplicate
-        package.
+      - Emailed the maintainer on 2026-10-20 (the comment's patch, offer to co-maintain). He
+        answered on 2026-10-23: he will fix it the weekend of 2026-10-24 and look into adding us
+        as co-maintainer (he asked for a gitlab.com account).
+      - Once the AUR package builds without libselinux, decide whether `aur/local/bootc` goes
+        (`bootc` into `aur/packages.list`): it pins the version on purpose (bumped after a test
+        build), while the AUR package follows every release the day it comes out.
 - [ ] ESP mounted read-only by bootc (`systemd.mount-extra=...:/boot:auto:ro`), which breaks
       systemd-boot's own units (none reported yet): `systemd-boot-random-seed` is masked, and
       `systemd-boot-update` and `systemd-bless-boot` remount it read-write in their own process
