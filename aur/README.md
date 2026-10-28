@@ -24,8 +24,10 @@ Prebuilt AUR packages for the `userland` distrobox, published as the pacman repo
 - PKGBUILD changes are not reviewed: only list packages you trust.
 
 Packages and database are signed ([Signatures](../README.md#signatures)). Clients trust the key and add the
-repository after Arch's repositories (the dotfiles repo does this for the distroboxes, in
-`pre_init_distrobox_assemble.sh`):
+repository after Arch's repositories (the userland image does this for the distroboxes, in
+`userland/Containerfile`; the bootc images only while they are built). Where pacman also runs as a
+normal user, add `no-auto-check-trustdb` to `/etc/pacman.d/gnupg/gpg.conf` as well, or the
+required database signature eventually reads as missing ([userland/AGENTS.md](../userland/AGENTS.md)):
 
 ```sh
 pacman-key --add keys/distro-builder.asc

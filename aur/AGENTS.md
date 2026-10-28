@@ -2,8 +2,7 @@
 
 @README.md
 
-- `aur/build` signs after the container exits (packages and `aur.db`). The clients' setup is the
-  dotfiles' `~/.dotfiles/distrobox/.config/distrobox/pre_init_distrobox_assemble.sh`.
+- `aur/build` signs after the container exits (packages and `aur.db`).
 - `build-aur.timer` adds up to 30 min of random delay to its 04:00 UTC and is `Persistent=true`.
   The unit takes `/run/build-image.lock` like the image builds: the bootc builds install bootc
   from `[aur]`, and the 8 GB VM cannot hold chunkah and a Rust compile at once (both started by

@@ -17,6 +17,14 @@
   (a `/dev/null` link in `/etc/pacman.d/hooks`; add new ones there), `fc-cache`, and podman as a
   remote client (`99-remote.conf`: a local podman in a box deletes the host's rootless
   `pause.pid`).
+- `no-auto-check-trustdb` in the keyring's `gpg.conf`: once the trust database's next check date
+  passes (set from the expiry dates in the keyring), gpg wants to update it, and pacman run as the
+  user (`pacman -Q`, `-Si`, `-Sl`) cannot lock `trustdb.gpg` ("Fatal: can't create lock"). GPGME then
+  returns no signature and the `[aur]` database, whose signature is required, reads as unsigned:
+  "aur: missing required signature", and `-Si`/`-Sl` lose `[aur]` (2026-10-27, both boxes). Any gpg
+  run as root in a box (`sudo pacman ...`) did the check and hid it until the next date. pacman-key
+  still checks after every `--add`, `--lsign-key`, `--populate` and `--recv-keys`, so the image is
+  built with a fresh trust database.
 - `podman` in the boxes is `podman-remote` (`/usr/local/bin/podman`, first in PATH). The full
   binary, even with `remote = true`, checks the host's `pause.pid` before connecting, takes the
   host's `catatonit -P` for a stale process and deletes the file ("pause.pid file refers to PID
