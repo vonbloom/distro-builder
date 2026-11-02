@@ -40,6 +40,17 @@
 - `distrobox.ini`: values without spaces are sourced by `distrobox assemble` (`$(id -u)` in
   `additional_flags` works); `exported_bins_path` is left at its default (`$HOME/.local/bin`).
   Exports only happen when a box is created, which is fine: every update recreates it.
+- `exported_apps` takes every desktop file the box sees whose `Exec` or `Name` has the word, `$HOME`
+  included, except those already calling `distrobox-enter`: `brave` would match Origin's too, and a
+  hand-made `~/.local/share/applications/brave-origin-<name>.desktop` with `--profile-directory`
+  and `TryExec=brave-origin` (the host's launcher hides it; the export drops that line) comes out as
+  a launcher for that profile. Launchers whose names tell what a profile is for stay out of the
+  public dotfiles.
+- Brave Origin keeps its data in `~/.config/BraveSoftware/Brave-Origin`, not Brave's `Brave-Browser`,
+  and its launcher reads `brave-origin-flags.conf` (dotfiles). "Proceed with Origin for free on
+  Linux" shows only once (`brave.origin.free_tier_accepted` in `Local State`): accept it before
+  copying profiles from another machine, and keep that `Local State`. In a copied profile what the
+  keyring encrypted (`v11`) does not survive (signed out of Google, 2026-11-02); `v10` has a fixed key.
 - The push is `lib/push-image.sh` (chunkah, signature, skopeo), shared with bootc/build; prune is
   `bootc/prune userland` with `PKGS_DIR=/mnt/repo/userland`. The status page lists the registry's
   `userland` repository apart from the bootc ones (`serve/status-gen`, `USERLAND`).

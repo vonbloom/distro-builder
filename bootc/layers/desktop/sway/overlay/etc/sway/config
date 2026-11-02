@@ -61,8 +61,8 @@ input type:keyboard {
   xkb_layout "es"
 }
 
-# for_window [app_id="brave-browser"] move container to workspace number 2
-assign [app_id="brave-browser"] workspace number 2
+# for_window [app_id="brave-origin"] move container to workspace number 2
+assign [app_id="brave-origin"] workspace number 2
 for_window [instance="^pinentry.*"] floating enable, border pixel 1, sticky enable, move position center
 for_window [title="Apache JMeter"] floating enable
 focus_follows_mouse no

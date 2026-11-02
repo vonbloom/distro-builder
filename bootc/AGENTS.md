@@ -376,7 +376,7 @@ Sway layer (`layers/desktop/sway`):
   in `etc/pam.d/login` (overrides util-linux's file: keep it in line with it) and kept in sync on a
   password change by `etc/pam.d/passwd` (shadow's). Brave and VS Code run in the userland box and
   reach it on the host's session bus, but on sway they do not detect it: the dotfiles set
-  `--password-store=gnome-libsecret` (`brave-flags.conf`, `~/.vscode/argv.json`) once the images
+  `--password-store=gnome-libsecret` (`brave-origin-flags.conf`, `~/.vscode/argv.json`) once the images
   have the keyring. Check with `secret-tool store --label=t a b` and `secret-tool lookup a b`.
   gcr-4 also brings `gcr-ssh-agent`, which sets `SSH_AUTH_SOCK` for the systemd user manager: the
   user preset disables it (and openssh's `ssh-agent.socket`), SSH keys are gpg-agent's. The user

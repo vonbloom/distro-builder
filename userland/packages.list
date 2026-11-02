@@ -9,14 +9,15 @@ keyutils less lsof man-db man-pages mtr ncurses nss-mdns openssh pigz pinentry p
 shadow sudo tcpdump time traceroute tree tzdata unzip util-linux util-linux-libs vte-common wget
 words xorg-xauth zip mesa vulkan-intel vulkan-radeon
 
-# Fonts (cached at build time) and the keyring of [cachyos], where brave-bin comes from.
+# Fonts (cached at build time) and the keyring of [cachyos].
 # ttf-liberation: Chromium (Brave, VS Code) only takes a metric-compatible font for Arial/Helvetica
 # (and its default sans-serif, Arial); without one, a page that lists "Noto Color Emoji" got its
 # digits and spaces from the emoji font, spread out (Syncthing's GUI, 2026-10-11)
 fontconfig cachyos-keyring ttf-jetbrains-mono-nerd noto-fonts-emoji ttf-liberation
 
 # Desktop apps, exported to the host by distrobox.ini
-brave-bin pipewire-pulse libpulse
+# Brave Origin from [aur]: Brave's minimal edition, its extras compiled out
+brave-origin-bin pipewire-pulse libpulse
 # Microsoft's VS Code from [aur]: the Dev Containers extension (work projects) does not work in
 # Code-OSS or VSCodium. podman is a client of the host's socket (99-remote.conf)
 visual-studio-code-bin podman git

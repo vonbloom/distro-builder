@@ -16,9 +16,9 @@ ARG AUR_SIGLEVEL=Required
 
 # Repositories after Arch's [core] and [extra], in priority order: [cachyos] (the generic x86_64
 # repository only, not the -v3 ones, so the base stays Arch) and [aur], prebuilt AUR packages
-# (distro-builder aur/), signed by the build server. A package in both (brave-bin) comes from
-# [cachyos]. The Arch image skips man pages, locales and docs (NoExtract): enabled as distrobox-init
-# does. no-auto-check-trustdb: pacman run as the user cannot lock the keyring (AGENTS.md)
+# (distro-builder aur/), signed by the build server. The Arch image skips man pages, locales and
+# docs (NoExtract): enabled as distrobox-init does. no-auto-check-trustdb: pacman run as the user
+# cannot lock the keyring (AGENTS.md)
 RUN --mount=type=bind,source=keys/distro-builder.asc,target=/distro-builder.asc \
     pacman-key --init && echo no-auto-check-trustdb >> /etc/pacman.d/gnupg/gpg.conf && \
     pacman-key --populate archlinux && \

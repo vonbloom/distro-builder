@@ -11,3 +11,6 @@ corosync-qdevice
 # squeezelite, a Lyrion player: built against the current ffmpeg (reviewed
 # 2026-10-09: upstream git at a pinned commit)
 squeezelite
+# The minimal edition of Brave: Brave's own AUR package (reviewed 2026-11-02: the upstream
+# release zip with its checksum)
+brave-origin-bin
