@@ -20,6 +20,8 @@ diffutils
 dosfstools
 efibootmgr
 exfatprogs
+# On the host: from a box it reads the box's mounts and misses the shell and Sway's version
+fastfetch
 fwupd
 fzf
 git
