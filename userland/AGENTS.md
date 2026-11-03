@@ -7,8 +7,14 @@
   missing, so the image creates it and has those packages (the list in `packages.list` is
   `setup_pacman` of distrobox 1.8.2.5; recheck it when distrobox changes it). The box then starts
   in seconds and never upgrades itself: updates are a new image.
-- `glibc-locales` instead of `locale-gen`: distrobox-init generated the host's locale
-  (`ca_ES.UTF-8`) in its setup, which the image skips; the package has every locale built.
+- `locale-gen` with the hosts' list (`bootc/layers/base/overlay/etc/locale.gen`): a box inherits
+  `LANG` from its host, and distrobox-init generated that locale in its setup, which the image
+  skips. `glibc-locales` did the same with 222 MiB of every locale. The Containerfile installs
+  `glibc` again first: the Arch image's copy lacks the sources (`NoExtract`, below), and `--needed`
+  leaves it alone unless `-Syu` happened to upgrade it.
+- No JetBrains Mono in the image: distrobox mounts the host's `/usr/share/fonts` at
+  `/usr/local/share/fonts` and its `/etc/fonts/local.conf`, so `monospace` is the host's font in the
+  boxes. `ttf-jetbrains-mono-nerd` added 233 MiB of variants nothing asked for.
 - The Arch image skips man pages, locales and docs (`NoExtract` in `pacman.conf`): the Containerfile
   drops those lines before installing, as distrobox-init does. Packages of the base image keep
   what was skipped.

@@ -14,3 +14,6 @@ squeezelite
 # The minimal edition of Brave: Brave's own AUR package (reviewed 2026-11-02: the upstream
 # release zip with its checksum)
 brave-origin-bin
+# pandoc without Arch's Haskell libraries (reviewed 2026-11-02: the upstream release binary and
+# source tarball, with their checksums)
+pandoc-bin

@@ -37,10 +37,16 @@ RUN --mount=type=bind,source=keys/distro-builder.asc,target=/distro-builder.asc 
 RUN mkdir -p /etc/pacman.d/hooks && \
     ln -s /dev/null /etc/pacman.d/hooks/10-openssh-mark-sshd-for-restart.hook
 
+# The hosts' locales, since a box inherits LANG from its host: glibc again first, because the Arch
+# image's copy has no locale sources (NoExtract) and --needed leaves it alone when it is current.
 # The downloaded packages go: the live userland had 3.7 GB of them. Not pacman -Scc --noconfirm,
 # which answers no to removing the cache
 RUN --mount=type=bind,source=userland/packages.list,target=/packages.list \
+    --mount=type=bind,source=bootc/layers/base/overlay/etc/locale.gen,target=/locale.gen \
     sed 's/#.*//' /packages.list | xargs -r pacman -S --noconfirm --needed && \
+    pacman -S --noconfirm glibc && \
+    install -m 644 /locale.gen /etc/locale.gen && \
+    locale-gen && \
     rm -rf /var/cache/pacman/pkg/*
 
 # The fonts' cache, once here instead of at every box start. podman in the boxes is a client of the

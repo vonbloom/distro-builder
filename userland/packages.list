@@ -3,17 +3,18 @@
 
 # What distrobox-init installs on a box's first start (distrobox 1.8.2.5, setup_pacman; mlocate is
 # gone from Arch). The image has them, so a new box skips that setup (/.containersetupdone).
-# zsh: the user's shell. glibc-locales: every locale, the host's ca_ES.UTF-8 included
-zsh bash-completion bc curl diffutils findutils glibc glibc-locales gnupg iputils inetutils
+# zsh: the user's shell. Not its glibc-locales: the Containerfile generates the hosts' locales
+zsh bash-completion bc curl diffutils findutils glibc gnupg iputils inetutils
 keyutils less lsof man-db man-pages mtr ncurses nss-mdns openssh pigz pinentry procps-ng rsync
 shadow sudo tcpdump time traceroute tree tzdata unzip util-linux util-linux-libs vte-common wget
 words xorg-xauth zip mesa vulkan-intel vulkan-radeon
 
-# Fonts (cached at build time) and the keyring of [cachyos].
+# Fonts (cached at build time) and the keyring of [cachyos]. JetBrains Mono is the host's: distrobox
+# mounts its fonts and /etc/fonts/local.conf in the boxes.
 # ttf-liberation: Chromium (Brave, VS Code) only takes a metric-compatible font for Arial/Helvetica
 # (and its default sans-serif, Arial); without one, a page that lists "Noto Color Emoji" got its
 # digits and spaces from the emoji font, spread out (Syncthing's GUI, 2026-10-11)
-fontconfig cachyos-keyring ttf-jetbrains-mono-nerd noto-fonts-emoji ttf-liberation
+fontconfig cachyos-keyring noto-fonts-emoji ttf-liberation
 
 # Desktop apps, exported to the host by distrobox.ini
 # Brave Origin from [aur]: Brave's minimal edition, its extras compiled out
@@ -41,6 +42,9 @@ syncthing
 # Terminal tools
 neovim btop fastfetch fzf zsh-completions
 # note export (dotfiles scripts/.local/bin/note): Markdown to PDF; typst finds any installed font,
-# where groff's ms only has its own (no ☐ ☒ for task lists, no PNG images)
-pandoc-cli typst
-ansible ansible-lint
+# where groff's ms only has its own (no ☐ ☒ for task lists, no PNG images). pandoc-bin from [aur]:
+# upstream's binary, where Arch's pandoc-cli brings 238 packages, most of them Haskell libraries
+pandoc-bin typst
+# ansible-core, not ansible (500 MiB of collections): a project installs what its requirements.yml
+# lists
+ansible-core ansible-lint
