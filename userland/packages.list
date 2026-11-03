@@ -40,7 +40,7 @@ imv
 syncthing
 
 # Terminal tools
-neovim btop fastfetch fzf zsh-completions
+neovim btop fzf zsh-completions
 # note export (dotfiles scripts/.local/bin/note): Markdown to PDF; typst finds any installed font,
 # where groff's ms only has its own (no ☐ ☒ for task lists, no PNG images). pandoc-bin from [aur]:
 # upstream's binary, where Arch's pandoc-cli brings 238 packages, most of them Haskell libraries
