@@ -7,7 +7,7 @@
 # aur/bump-local bootc sets pkgver and sha256sums for the latest one.
 
 pkgname=bootc
-pkgver=1.17.1
+pkgver=1.17.4
 pkgrel=1
 pkgdesc='Boot and upgrade via container images'
 url='https://github.com/bootc-dev/bootc'
@@ -29,7 +29,7 @@ depends=(
 )
 arch=('x86_64')
 source=("https://github.com/bootc-dev/bootc/releases/download/v$pkgver/bootc-$pkgver.tar.zstd")
-sha256sums=('8d06b7b20e6a3fe862275f089a2ac5275ff91151de2e3f0ef090a426292ab3dd')
+sha256sums=('57d8913f9c15c92aa4bc31cb927d7cf9fb76cad623ccb7f8a83e7322d0f9a802')
 
 prepare() {
     cd $pkgname-$pkgver

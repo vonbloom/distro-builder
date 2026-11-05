@@ -406,12 +406,15 @@ Upstream issues with a local workaround, to drop when they are fixed in a bootc 
       to be added in the future"): `bootc-boot-count` and the `bootc-finalize-staged.service`
       drop-in of the base layer, once bootc writes counted entries itself.
 
+- [x] bootc-dev/bootc#2558 (`timeout 5` never written): closed by bootc-dev/bootc#2597, in bootc
+      1.17.4. The `loader.conf` that `bootc/install` wrote moved to the base layer (2026-11-05). Its
+      history is below, with #2557's.
 - [ ] bootc-dev/bootc#2557 (no firmware boot entry with `--bootloader systemd`): the
       `efibootmgr` step of `bootc/install`.
-- [ ] bootc-dev/bootc#2558 (`timeout 5` never written): the `loader.conf` written by `bootc/install`.
-      - Both fixed by bootc-dev/bootc#2569 (Johan-Liebert1, 2026-10-14): after `bootctl install`,
-        the `timeout` lines of `loader.conf` are replaced by `timeout 5` (#2558), and `bootctl` gets
-        `--variables=yes` unless `--generic-image` (systemd >= 258; the image has 262) (#2557).
+      - Both addressed at first by bootc-dev/bootc#2569 (Johan-Liebert1, 2026-10-14): after
+        `bootctl install`, the `timeout` lines of `loader.conf` are replaced by `timeout 5` (#2558),
+        and `bootctl` gets `--variables=yes` unless `--generic-image` (systemd >= 258; the image has
+        262) (#2557).
         Approved by cgwalters the same day, not merged on 2026-10-15: review requested from
         jeckersb, CI red in three fedora-44 composefs + systemd-boot unsealed jobs. cgwalters would
         rather have the initial `loader.conf` come from the image or package than hardcoded and
@@ -497,7 +500,10 @@ Upstream issues with a local workaround, to drop when they are fixed in a bootc 
           copies the previous binary there. The firmware skips the missing file.
         - Not covered: osbuild (no udev database), the case the relax was added for.
 
-        Not posted: it waits until the proposal reaches the PR or systemd.
+        Posted on 2026-10-30 (issuecomment-6534412161), once cgwalters proposed on the PR
+        (2026-10-23) to mask `/run/.containerenv` from bootc instead of changing systemd, with his
+        agent on it (cgwalters-forge/tracker#709): masking works, but only with the relax dropped
+        at the same time (kept for `--generic-image`).
       - bootupd, Fedora's way to the entry, is not one for us. bootc hands GRUB to bootupd,
         which runs `efibootmgr`, and the draft bootc-dev/bootc#2512 would hand it systemd-boot
         too (bootupd >= 0.3.0). But bootupd only installs systemd-boot behind shim and points the
@@ -517,32 +523,50 @@ Upstream issues with a local workaround, to drop when they are fixed in a bootc 
         images): then bootupd would also bring the entry and the systemd-boot updates. An `arch-bootc` package with an `efibootmgr` step would not help either:
         `bootc install` runs nothing from the image afterwards (no hooks), so `bootc/install`
         would still have to call it.
-      - Our `loader.conf` stays anyway: it carries our settings, like the arkdep installer's, and
-        since 2026-10-19 `timeout 0` (the menu hidden, boot counting goes back by itself), so it
-        overwrites bootc's `timeout 5`. Only its #2558 comment goes. The `efibootmgr` step stays
-        until bootc creates the entry in a way that works in a container. Both `bootc/install`
-        modes run `bootc install to-filesystem` in `podman run --pid=host`. `efibootmgr --create`
-        works in the same container once efivarfs is mounted there (checked; bootc mounts it
-        itself).
-      - Next: the release that includes a working fix, `pkgver` of `aur/local/bootc`, a rebuilt
-        image, then a rehearsal in the ISO VM. Test setup kept in `~/.cache/bootc-rehearsal`
-        (`podman-scratch.qcow2` holds podman's storage on a second disk instead of a 12G tmpfs,
-        so the VM needs 4 GiB). The test image: `aur/local/bootc`'s PKGBUILD with the commit's
-        GitHub archive as source (`makepkg --nocheck` in `aur-builder`), `pacman -U` over the
-        `[aur]` bootc in a copy of the Containerfile, `REPOSITORY=test/t480 bootc/build t480`
-        from a copy of the checkout (~30 min on the server).
-- [ ] bootc-dev/bootc#2227 (version read from labels on ostree, annotations on composefs): keep
-      both in `bootc/build`; the creation date fallback of `bootc-update` once every image has the
-      annotation.
+      - Split on 2026-10-28: the timeout and `umount -l` commits moved to bootc-dev/bootc#2597
+        ("fixes #2558"), and #2569 keeps the `--variables=yes` one (a draft, head 5685e48 on
+        2026-10-30). #2597 drops bootc's `timeout 5` and does what cgwalters asked: if the image
+        ships `/usr/lib/bootc/install/systemd-boot/loader.conf`, bootc copies it verbatim to the
+        ESP after `bootctl install` (`install_systemd_boot`, at install only: `bootc switch` and
+        upgrades leave the ESP's file alone); otherwise bootctl's template stays. Its test first
+        wrote `timeout = 1`, which systemd-boot ignores (loader.conf(5): name, whitespace, value),
+        and all nine composefs + systemd-boot jobs failed. Redone with `timeout 1` on 2026-10-30
+        (bdcc70c3) after our note (posted on #2569 by mistake, since deleted), and those jobs
+        pass. Approved by cgwalters the same day, merged on 2026-11-03 (#2558 closed), released in
+        1.17.4 (2026-11-04). On #2558 he added that an installer wrapping `install to-filesystem`
+        can set it its own way, as `bootc/install` did.
+      - Bump to 1.17.4 (2026-11-05; 1.17.3 had neither PR): `loader.conf` moved to the base layer
+        as `usr/lib/bootc/install/systemd-boot/loader.conf` and `bootc/install` stopped writing it.
+        Every install takes it from the image, `bootc/test`'s `to-disk` too, and it still reaches
+        installed machines only by hand (the T480 got `timeout 0` that way the same day). Test
+        build on the server with `check()` on, as `aur build` runs it: 537 tests passed, none
+        failed, no libselinux in the binary, 13 min. Since 1.17.2 bootc finds the ESP through
+        `LoaderDevicePartUUID`, which on the T480 matches its ESP.
+        - [ ] Still to do, in this order: `build-aur`, an image (its boot tests before `latest`),
+              the update on the T480 (`bootc status`), a new ISO and `iso/test-install`. An ISO
+              built before `latest` has the file would install without it; older ISOs still write
+              the same file over it.
+      - The `efibootmgr` step stays until bootc creates the entry in a way that works in a
+        container. Both `bootc/install` modes run `bootc install to-filesystem` in
+        `podman run --pid=host`. `efibootmgr --create` works in the same container once efivarfs is
+        mounted there (checked; bootc mounts it itself).
+      - Next, for #2557: a release with a working fix, `pkgver` of `aur/local/bootc`, a rebuilt
+        image and a rehearsal in the ISO VM. Test setup kept in
+        `~/.cache/bootc-rehearsal` (`podman-scratch.qcow2` holds podman's storage on a second disk
+        instead of a 12G tmpfs, so the VM needs 4 GiB). The test image: `aur/local/bootc`'s
+        PKGBUILD with the commit's GitHub archive as source (`makepkg --nocheck` in `aur-builder`),
+        `pacman -U` over the `[aur]` bootc in a copy of the Containerfile,
+        `REPOSITORY=test/t480 bootc/build t480` from a copy of the checkout (~30 min on the server).
+- [ ] bootc-dev/bootc#2227 (version read from labels on ostree, annotations on composefs): both
+      in `bootc/build` until no machine stages with a bootc older than 1.17.3.
       - Answered by bootc-dev/bootc#2570 (mvanhorn, 2026-10-15, "Closes #2227"): composefs status
         keeps the manifest annotation and falls back to `version_for_config()` (the
-        `org.opencontainers.image.version` label, then `version`), as we proposed. Approved by
-        cgwalters on 2026-10-16, not merged on 2026-10-19. CI was red in nearly every job, as
-        for the other PRs of that day, so probably not because of this change. It does not touch the `created` lookups listed in
-        the issue (`status.rs`, `aleph.rs`).
-      - Once released: the label alone gives the version, so the annotation in `bootc/build` is
-        no longer needed (harmless: chunkah writes it anyway) and the creation date fallback of
-        `bootc-update` only matters for images without the label.
+        `org.opencontainers.image.version` label, then `version`), as we proposed. Merged on
+        2026-10-27 (the issue closed) and released in 1.17.3 (2026-10-28). It does not touch the
+        `created` lookups listed in the issue (`status.rs`, `aleph.rs`).
+      - With the bump to 1.17.4 (2026-11-05) the creation date fallback of `bootc-update` went. The
+        annotation in `bootc/build` stays for the T480's first update, staged by its 1.17.1; then
+        it is no longer needed (harmless: chunkah writes it anyway).
 - [ ] AUR `bootc` without the `selinux` feature (reported in the AUR comments): `aur/local/bootc`
       while the AUR package links libselinux.
       - The maintainer (jjm) has answered no comment since 2025-11; nvchecker bumps the version
@@ -550,7 +574,9 @@ Upstream issues with a local workaround, to drop when they are fixed in a bootc 
         in a clean chroot.
       - Emailed the maintainer on 2026-10-20 (the comment's patch, offer to co-maintain). He
         answered on 2026-10-23: he will fix it the weekend of 2026-10-24 and look into adding us
-        as co-maintainer (he asked for a gitlab.com account).
+        as co-maintainer (he asked for a gitlab.com account). Nothing came that weekend, and
+        nvchecker published 1.17.3-1 on 2026-10-28, still with libselinux. A reminder around
+        2026-11-03, offering a merge request with the fix if he adds us to his GitLab repo.
       - Once the AUR package builds without libselinux, decide whether `aur/local/bootc` goes
         (`bootc` into `aur/packages.list`): it pins the version on purpose (bumped after a test
         build), while the AUR package follows every release the day it comes out.

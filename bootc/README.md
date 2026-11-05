@@ -161,11 +161,11 @@ Afterwards, updates are staged by `bootc-update.timer` and shown by the waybar i
 above), and start on the next boot. The boot menu lists each image as `Arch Linux (<recipe> <tag>)`
 with the previous one as a fallback, which systemd-boot also boots by itself after three failed
 boots of a new image (boot counting, above); `sudo bootc rollback` makes the previous one the
-default. The menu is hidden (`timeout 0` in `loader.conf`, written by `install`; since 2026-10-19,
-5 s less on every boot): hold Space while the machine starts, or choose *Reinicia al menú
-d'arrencada* in the power menu (`$mod+Shift+e`, `systemctl reboot --boot-loader-menu=0`), which
-shows it once with no timeout. A machine installed before then keeps its `timeout 5` until its
-`loader.conf` is changed by hand:
+default. The menu is hidden (`timeout 0` in the base layer's `loader.conf`; since 2026-10-19, 5 s
+less on every boot): hold Space while the machine starts, or choose *Reinicia al menú d'arrencada*
+in the power menu (`$mod+Shift+e`, `systemctl reboot --boot-loader-menu=0`), which shows it once
+with no timeout. `bootc install` copies that file to the ESP and updates never touch it, so a
+machine keeps the `loader.conf` of its install until it is changed by hand:
 `sudo unshare -m sh -c 'mount -o remount,rw /boot && sed -i "s/^timeout .*/timeout 0/" /boot/loader/loader.conf'`
 (the ESP is mounted read-only; the remount only applies inside `unshare`).
 
@@ -252,7 +252,7 @@ the installer ISO (`cow_spacesize=2G`), `bootc/install` downloaded from GitHub:
   libvirt's `default.xml` 644 -> 600). The previous image stays as the rollback entry.
 - `bootc status` showed no `version` on composefs (1.17.0 and 1.17.1) although the image had the
   label: the composefs backend reads only the manifest annotation, which `bootc/build` now sets too
-  (bootc-dev/bootc#2227); `bootc-update` falls back to the image's creation date.
+  (bootc-dev/bootc#2227, fixed in 1.17.3).
 - The `userland` distrobox broke when its first setup was interrupted (see the dotfiles'
   pre-init hook): not bootc specific.
 
@@ -274,13 +274,14 @@ the installer ISO (`cow_spacesize=2G`), `bootc/install` downloaded from GitHub:
   `install` adds or reorders it with `efibootmgr`. Reported: bootc-dev/bootc#2557 (`bootctl --root`
   skips EFI variables unless `--variables=yes`).
 - No boot menu: `bootctl install` writes a `loader.conf` with every line commented out, so bootc's
-  own `timeout 5` (only written when the file is missing) never lands; `install` writes its own
-  (with the menu hidden since 2026-10-19, `timeout 0`).
-  Reported: bootc-dev/bootc#2558. Every entry was titled "Arch Linux": the titles come from the
-  image's os-release.
-- `bootc status` shows no version on composefs for an image with only the
-  `org.opencontainers.image.version` label: that backend reads the manifest annotation (the ostree
-  one the label). `bootc/build` sets both; reported in bootc-dev/bootc#2227 (comment of
+  own `timeout 5` (only written when the file is missing) never landed. Reported:
+  bootc-dev/bootc#2558. Since 1.17.4 bootc copies the image's
+  `/usr/lib/bootc/install/systemd-boot/loader.conf` over it; ours is in the base layer, with the
+  menu hidden since 2026-10-19 (`timeout 0`). Every entry was titled "Arch Linux": the titles come
+  from the image's os-release.
+- Before 1.17.3, `bootc status` showed no version on composefs for an image with only the
+  `org.opencontainers.image.version` label: that backend read only the manifest annotation (the
+  ostree one the label). `bootc/build` sets both; reported in bootc-dev/bootc#2227 (comment of
   2026-10-08).
 
 ## Missing before real use

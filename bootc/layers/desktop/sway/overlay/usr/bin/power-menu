@@ -2,7 +2,7 @@
 # Session and power menu (rofi), opened by $mod+Shift+e and the waybar power button.
 # Ending the session, rebooting and powering off ask for confirmation. Also switches between the
 # light and dark themes (darkman, like $mod+Shift+t). The boot menu is hidden (timeout 0 in
-# loader.conf, written by bootc/install): rebooting to it shows it once, with no timeout, through
+# the base layer's loader.conf): rebooting to it shows it once, with no timeout, through
 # an EFI variable systemd-boot reads (LoaderConfigTimeoutOneShot; logind lets the active session
 # set it without a password).
 
