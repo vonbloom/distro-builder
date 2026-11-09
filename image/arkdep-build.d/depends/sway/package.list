@@ -11,6 +11,9 @@ swaybg
 swayidle
 swaylock
 waybar
+# music-status (the waybar music module) is Python: installed anyway (apparmor needs it), listed
+# so that it stays
+python
 rofi
 wlsunset
 wl-clipboard

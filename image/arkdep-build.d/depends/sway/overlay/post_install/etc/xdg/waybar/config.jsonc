@@ -12,7 +12,7 @@
         "modules-right": [
             "custom/arkdep",
             "custom/userland",
-            "mpd",
+            "custom/music",
             "pulseaudio",
             "network",
             "cpu",

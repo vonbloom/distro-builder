@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+"""Waybar module custom/music: what this machine's squeezelite plays, read from Lyrion.
+
+squeezelite (a Lyrion player, run from the userland box by a user unit of the dotfiles) keeps a TCP
+connection to the server's port 3483: its peer is the server, and its local address is the player's
+"ip" in Lyrion's player list. So the module needs no configuration. It is hidden while squeezelite
+does not run or has no server (away from home), and while the player is stopped or off. Lyrion's
+JSON-RPC API answers on its web port.
+
+Usage: music-status          print the module state as waybar JSON ("exec", every 5 s)
+       music-status pause    play or pause ("on-click")
+       music-status next     skip to the next track ("on-click-right")
+"""
+
+import html
+import json
+import socket
+import struct
+import sys
+import urllib.request
+
+SLIMPROTO_PORT = 3483  # squeezelite's connection to the server
+WEB_PORT = 9000  # Lyrion's web interface and JSON-RPC API
+PLAYING, PAUSED = "\U000f0386", "\U000f03e4"  # Nerd Font md-music_note, md-pause
+MAX_TEXT = 45
+HIDDEN = {"text": "", "class": "", "tooltip": ""}
+
+
+def ipv4(hex_addr):
+    # /proc/net/tcp writes the address as a 32-bit number in host (little-endian) order
+    return socket.inet_ntoa(struct.pack("<I", int(hex_addr, 16)))
+
+
+def connection():
+    """(server, local address) of squeezelite's connection to its server, or None."""
+    with open("/proc/net/tcp") as f:
+        for line in f.readlines()[1:]:
+            local, remote, state = line.split()[1:4]
+            remote_addr, remote_port = remote.split(":")
+            if state == "01" and int(remote_port, 16) == SLIMPROTO_PORT:  # ESTABLISHED
+                local_addr, local_port = local.split(":")
+                return ipv4(remote_addr), f"{ipv4(local_addr)}:{int(local_port, 16)}"
+    return None
+
+
+def request(server, player, command):
+    body = json.dumps({"id": 1, "method": "slim.request", "params": [player, command]}).encode()
+    req = urllib.request.Request(f"http://{server}:{WEB_PORT}/jsonrpc.js", body,
+                                 {"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=3) as res:
+        return json.load(res).get("result") or {}
+
+
+def player_id(server, address):
+    """The player at that address, or else the connected one at its IP: right after squeezelite
+    reconnects (a restart, a resume), Lyrion may still list the port of the dead connection."""
+    players = request(server, "", ["players", 0, 100]).get("players_loop", [])
+    host = address.rsplit(":", 1)[0]
+    same_host = [p for p in players if p.get("connected")
+                 and p.get("ip", "").rsplit(":", 1)[0] == host]
+    exact = [p for p in players if p.get("ip") == address]
+    return (exact or same_host or [{}])[0].get("playerid")
+
+
+def clock(seconds):
+    seconds = int(float(seconds or 0))
+    return f"{seconds // 60}:{seconds % 60:02d}"
+
+
+def module_state(server, player):
+    status = request(server, player, ["status", "-", 1, "tags:al"])
+    mode = status.get("mode")
+    if not status.get("power") or mode not in ("play", "pause"):
+        return HIDDEN
+    track = (status.get("playlist_loop") or [{}])[0]
+    title, artist, album = (track.get(k, "") for k in ("title", "artist", "album"))
+    text = f"{artist} – {title}" if artist else title
+    if len(text) > MAX_TEXT:
+        text = text[:MAX_TEXT - 1] + "…"
+    tooltip = [title, " – ".join(x for x in (artist, album) if x),
+               f"{clock(status.get('time'))} / {clock(status.get('duration'))}",
+               f"{status.get('player_name', '')} (Lyrion). Click: play/pause; right click: next track"]
+    return {
+        "text": html.escape(f"{PLAYING if mode == 'play' else PAUSED} {text}"),
+        "class": "playing" if mode == "play" else "paused",
+        "tooltip": html.escape("\n".join(line for line in tooltip if line)),
+    }
+
+
+def main():
+    action = sys.argv[1] if len(sys.argv) > 1 else ""
+    commands = {"pause": ["pause"], "next": ["playlist", "index", "+1"]}
+    if action and action not in commands:
+        sys.exit("Usage: " + __doc__.split("Usage: ")[1].rstrip())
+    state = HIDDEN
+    try:
+        found = connection()
+        player = found and player_id(*found)
+        if player and action:
+            request(found[0], player, commands[action])
+        elif player:
+            state = module_state(found[0], player)
+    except (OSError, ValueError):  # unreachable server (URLError is an OSError), bad JSON
+        pass
+    if not action:
+        print(json.dumps(state, ensure_ascii=False))
+
+
+if __name__ == "__main__":
+    main()

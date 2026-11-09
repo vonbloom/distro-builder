@@ -90,6 +90,7 @@ button:hover {
 #custom-media,
 #custom-arkdep,
 #custom-userland,
+#custom-music,
 #tray,
 #mode,
 #idle_inhibitor,
@@ -344,4 +345,15 @@ label:focus {
 
 #custom-userland.available {
     background-color: #00796b;
+}
+
+/* What this machine's squeezelite plays (music-status) */
+#custom-music.playing {
+    background-color: #66cc99;
+    color: #2a5c45;
+}
+
+#custom-music.paused {
+    background-color: #51a37a;
+    color: #2a5c45;
 }

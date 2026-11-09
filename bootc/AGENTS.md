@@ -418,6 +418,15 @@ Sway layer (`layers/desktop/sway`):
   devcontainers, distrobox) kept their conmon scopes alive until the 90 s stop timeout.
   `podman-stop-all.service` (user, sway layer) runs `podman stop --all` when the session ends, and
   `user.conf.d/50-stop-timeout.conf` caps any user unit or scope at 15 s.
+- **Music module** (`custom/music`, `music-status`, Python; since 2026-11-09, in place of waybar's
+  `mpd` module, which showed "Disconnected" with no MPD server): it finds squeezelite's
+  established connection to port 3483 in `/proc/net/tcp` (the box shares the host's network). Its
+  peer is the Lyrion server and its local address the player's `ip` in Lyrion's `players` list;
+  the status comes from the JSON-RPC API on Lyrion's web port (9000). So no configuration and
+  nothing of the network in the repository. Right after squeezelite reconnects (a restart, a
+  resume) Lyrion may still list the port of the dead connection: it then takes the connected
+  player at the same IP (the first version stayed hidden after quick restarts). `python` is listed
+  in the sway layer for it, though apparmor already pulls it in.
 - **Waybar icons**: the font is JetBrainsMono Nerd Font, which lacks Font Awesome 5/6 codepoints
   (e.g. `U+F590`, `U+F769`): use Nerd Font glyphs (`md-*`) and check new ones with
   `fc-list ":charset=<hex>"`.

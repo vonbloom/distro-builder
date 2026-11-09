@@ -184,6 +184,10 @@ What the layers set up for the user (the arkdep images have the same):
 - `$mod+F1` lists the shortcuts of the running sway config. `$mod+Shift+e`, or waybar's power
   button, opens the power menu: lock, log out, suspend, hibernate, reboot (also to the boot
   menu), power off and the light/dark switch, which `$mod+Shift+t` toggles too.
+- Waybar's music module shows what this machine's squeezelite (a Lyrion player, run from the
+  userland box by a user unit of the dotfiles) plays: artist and title, with the album and the
+  time in its tooltip. A click plays or pauses, a right click skips to the next track. It is
+  hidden while nothing plays or no squeezelite is connected to a server.
 - darkman turns the desktop light at sunrise and dark at sunset (location in
   `/etc/xdg/darkman/config.yaml`): the apps' colour scheme, the GTK theme, rofi, mako and the
   wallpaper folder. Waybar, foot and VS Code stay dark.

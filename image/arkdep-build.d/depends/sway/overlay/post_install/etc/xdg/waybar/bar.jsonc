@@ -19,7 +19,7 @@
     "modules-right": [
         "custom/arkdep",
         "custom/userland",
-        "mpd",
+        "custom/music",
         // "idle_inhibitor",
         "pulseaudio",
         "network",
@@ -224,6 +224,14 @@
         "interval": 3600,
         "signal": 9,
         "on-click": "userland-update-status update"
+    },
+    "custom/music": {
+        // What this machine's squeezelite plays, from Lyrion (hidden when stopped or no player)
+        "exec": "music-status",
+        "return-type": "json",
+        "interval": 5,
+        "on-click": "music-status pause",
+        "on-click-right": "music-status next"
     },
     "custom/power": {
         "format": "⏻ ",
