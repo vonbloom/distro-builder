@@ -36,8 +36,11 @@ qemu-base edk2-ovmf qemu-hw-display-virtio-vga qemu-hw-display-virtio-gpu
 gimp imagemagick
 # imv: image viewer, default for images in the boxes (mimeapps.list); also exported to the host
 imv
-# Syncthing: run by a host user unit that enters this box (dotfiles)
-syncthing
+# mpv: video and audio player, default for both in the boxes (mimeapps.list); exported
+mpv
+# Syncthing, and squeezelite from [aur] (a Lyrion player; ffmpeg linked in, which mpv needs
+# anyway): run by host user units that enter this box (dotfiles)
+syncthing squeezelite
 
 # Terminal tools
 neovim btop fzf zsh-completions
