@@ -21,7 +21,8 @@ case ${1:-} in
 		exec pkill -RTMIN+$SIGNAL waybar
 		;;
 	update)
-		exec foot --title userland-update sh -c \
+		# In a scope of its own, out of waybar.service: a restart of waybar would kill the update
+		exec systemd-run --user --scope --quiet -- foot --title userland-update sh -c \
 			"userland-update; printf '\nPress Enter to close'; read -r _"
 		;;
 esac

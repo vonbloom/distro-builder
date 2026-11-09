@@ -18,6 +18,11 @@
 
 set -euo pipefail
 
+# The boxes started here (distrobox assemble, enter) get a scope of their own: with INVOCATION_ID
+# set, podman leaves a container's conmon in the caller's systemd unit, and the box stopped with
+# that unit (a restart of waybar, whose icon runs this, stopped userland on 2026-11-09)
+unset INVOCATION_ID
+
 # One run at a time (deploy-userland runs it at the first login after boot). flock -o keeps the
 # lock in flock itself: an inherited lock descriptor stayed open in the conmon of the box that
 # distrobox started, for as long as the box ran, and every later run found it locked

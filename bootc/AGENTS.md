@@ -344,7 +344,14 @@ Workstation module:
   `userland-update --playground`, which moves it to userland's image and reinstalls the packages
   added in it (`pacman -Qqe` of the box minus `pacman -Qq` of the image, then `pacman -Syu
   --needed`). The lock is `flock -o` on a re-exec: a lock descriptor inherited by the boxes'
-  conmon (distrobox starts them) stayed held for as long as the box ran (first version).
+  conmon (distrobox starts them) stayed held for as long as the box ran (first version). It
+  unsets `INVOCATION_ID`: with it set, podman leaves the conmon of a container it starts in the
+  caller's systemd unit (it takes the unit for the container's manager), so a box started from a
+  unit stopped with it. Updated from the waybar icon, userland stopped when waybar was restarted
+  (2026-11-09); the click also opens the terminal in a scope of its own (`systemd-run --user
+  --scope`, `userland-update-status`), or that restart would kill the update. Brave and VS Code
+  outlived the stop (distrobox's `--pid host`), but the next `podman start` of the box killed the
+  exec sessions left from its previous run, and those apps with them.
   `deploy-userland` (when the user manager starts: the first session after boot, SSH too) only
   runs it when there is no `userland` box: updates are the user's call. Before the image, the box
   was assembled from the dotfiles' `default.ini` and installed hundreds of packages on its first
