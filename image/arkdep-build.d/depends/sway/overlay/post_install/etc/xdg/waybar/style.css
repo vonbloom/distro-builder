@@ -233,14 +233,9 @@ label:focus {
     /* background-color: #f0932b; */
 }
 
+/* Above normal work (warning-threshold in bar.jsonc) */
 #temperature.warning {
     color: #f0932b;
-}
-
-/* Waybar keeps the warning class while critical: reset the text colour */
-#temperature.critical {
-    background-color: #eb4d4b;
-    color: #ffffff;
 }
 
 #tray {

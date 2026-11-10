@@ -127,11 +127,11 @@
     "temperature": {
         // "thermal-zone": 2,
         // "hwmon-path": "/sys/class/hwmon/hwmon2/temp1_input",
-        // Ryzen/Intel mobile CPUs reach 80-90 °C in short boost bursts (Tjmax 100-105 °C): warn in
-        // orange text from 85 °C and only turn red when close to throttling
-        "warning-threshold": 85,
-        "critical-threshold": 95,
-        // "format-critical": "{temperatureC}°C {icon}",
+        // Orange text only above normal work: a mobile CPU boosts until it reaches its thermal limit,
+        // and the P14s on AC (performance profile) works at 85-95 °C, where a red module (critical
+        // at 95 °C until 2026-11-10) showed normal work. The firmware throttles, and shuts down at
+        // Tjmax (100-105 °C)
+        "warning-threshold": 98,
         "format": "{temperatureC}°C {icon}",
         "format-icons": ["󱃃", "󰔏", "󱃂"]
     },
