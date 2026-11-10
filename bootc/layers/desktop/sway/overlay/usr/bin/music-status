@@ -21,7 +21,7 @@ import urllib.request
 
 SLIMPROTO_PORT = 3483  # squeezelite's connection to the server
 WEB_PORT = 9000  # Lyrion's web interface and JSON-RPC API
-PLAYING, PAUSED = "\U000f0386", "\U000f03e4"  # Nerd Font md-music_note, md-pause
+PLAYING, PAUSED = "\U000f040a", "\U000f03e4"  # Nerd Font md-play, md-pause
 MAX_TEXT = 45
 HIDDEN = {"text": "", "class": "", "tooltip": ""}
 

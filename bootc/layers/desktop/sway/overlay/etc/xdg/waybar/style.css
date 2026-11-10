@@ -355,11 +355,9 @@ label:focus {
 
 /* What this machine's squeezelite plays (music-status) */
 #custom-music.playing {
-    background-color: #66cc99;
-    color: #2a5c45;
+    color: #66cc99;
 }
 
 #custom-music.paused {
-    background-color: #51a37a;
-    color: #2a5c45;
+    color: #51a37a;
 }
