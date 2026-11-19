@@ -16,11 +16,11 @@ SKOPEO=${SKOPEO:-quay.io/skopeo/stable:v1.22.3}
 
 # push_image <local image> <repository> <version> <tag> [chunkah build option...]
 # The version (the build date) goes to the org.opencontainers.image.version label and manifest
-# annotation, the checkout's commit to org.opencontainers.image.revision; the image is pushed as
-# <repository>:<tag>. Fails without the signing key: the clients refuse unsigned images of the
-# registry and would stop updating without a word (ALLOW_UNSIGNED=1 for local test runs). Removes
-# the local image afterwards: the registry holds it (a copy of several GB on the build server's disk
-# otherwise)
+# annotation (userland-update-status reads it from the manifest alone), the checkout's commit to
+# org.opencontainers.image.revision; the image is pushed as <repository>:<tag>. Fails without the
+# signing key: the clients refuse unsigned images of the registry and would stop updating without
+# a word (ALLOW_UNSIGNED=1 for local test runs). Removes the local image afterwards: the registry
+# holds it (a copy of several GB on the build server's disk otherwise)
 push_image() {
 	local image=$1 repository=$2 version=$3 tag=$4 revision
 	shift 4

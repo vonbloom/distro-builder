@@ -542,10 +542,14 @@ Upstream issues with a local workaround, to drop when they are fixed in a bootc 
         build on the server with `check()` on, as `aur build` runs it: 537 tests passed, none
         failed, no libselinux in the binary, 13 min. Since 1.17.2 bootc finds the ESP through
         `LoaderDevicePartUUID`, which on the T480 matches its ESP.
-        - [ ] Still to do, in this order: `build-aur`, an image (its boot tests before `latest`),
-              the update on the T480 (`bootc status`), a new ISO and `iso/test-install`. An ISO
-              built before `latest` has the file would install without it; older ISOs still write
-              the same file over it.
+        - Rollout on 2026-11-05: `build-aur`, then the image `2026-11-05` (both boot tests passed,
+          tagged `latest`). The T480 updated and rebooted, its 1.17.1 staging the update: it runs
+          1.17.4, the entry was marked good, the boot errors are those of the boot before, and
+          `bootc-update` finds no changes.
+        - [ ] A new ISO and `iso/test-install`, which checks `timeout 0` on an install that takes
+              the file from the image. Older ISOs still write the same file over it.
+        - [ ] The first update staged by 1.17.4: passed in the VM with the image `2026-11-08`
+              (`bootc/test --from latest`, from `2026-11-05`); still to see on the T480.
       - The `efibootmgr` step stays until bootc creates the entry in a way that works in a
         container. Both `bootc/install` modes run `bootc install to-filesystem` in
         `podman run --pid=host`. `efibootmgr --create` works in the same container once efivarfs is
@@ -557,16 +561,16 @@ Upstream issues with a local workaround, to drop when they are fixed in a bootc 
         PKGBUILD with the commit's GitHub archive as source (`makepkg --nocheck` in `aur-builder`),
         `pacman -U` over the `[aur]` bootc in a copy of the Containerfile,
         `REPOSITORY=test/t480 bootc/build t480` from a copy of the checkout (~30 min on the server).
-- [ ] bootc-dev/bootc#2227 (version read from labels on ostree, annotations on composefs): both
-      in `bootc/build` until no machine stages with a bootc older than 1.17.3.
+- [x] bootc-dev/bootc#2227 (version read from labels on ostree, annotations on composefs): fixed
+      in bootc 1.17.3; the T480 staged its last update with an older bootc on 2026-11-05.
       - Answered by bootc-dev/bootc#2570 (mvanhorn, 2026-10-15, "Closes #2227"): composefs status
         keeps the manifest annotation and falls back to `version_for_config()` (the
         `org.opencontainers.image.version` label, then `version`), as we proposed. Merged on
         2026-10-27 (the issue closed) and released in 1.17.3 (2026-10-28). It does not touch the
         `created` lookups listed in the issue (`status.rs`, `aleph.rs`).
       - With the bump to 1.17.4 (2026-11-05) the creation date fallback of `bootc-update` went. The
-        annotation in `bootc/build` stays for the T480's first update, staged by its 1.17.1; then
-        it is no longer needed (harmless: chunkah writes it anyway).
+        annotation stays: `push_image` sets it for the userland image too, whose version
+        `userland-update-status` reads from the manifest alone.
 - [ ] AUR `bootc` without the `selinux` feature (reported in the AUR comments): `aur/local/bootc`
       while the AUR package links libselinux.
       - The maintainer (jjm) has answered no comment since 2025-11; nvchecker bumps the version
@@ -575,8 +579,10 @@ Upstream issues with a local workaround, to drop when they are fixed in a bootc 
       - Emailed the maintainer on 2026-10-20 (the comment's patch, offer to co-maintain). He
         answered on 2026-10-23: he will fix it the weekend of 2026-10-24 and look into adding us
         as co-maintainer (he asked for a gitlab.com account). Nothing came that weekend, and
-        nvchecker published 1.17.3-1 on 2026-10-28, still with libselinux. A reminder around
-        2026-11-03, offering a merge request with the fix if he adds us to his GitLab repo.
+        nvchecker published 1.17.3-1 on 2026-10-28, still with libselinux. A reminder went by
+        email, offering a merge request with the fix if he adds us to his GitLab repo: no answer
+        by 2026-11-05, and nvchecker published 1.17.4-1 on 2026-11-04, its `cargo build` still
+        with the default features.
       - Once the AUR package builds without libselinux, decide whether `aur/local/bootc` goes
         (`bootc` into `aur/packages.list`): it pins the version on purpose (bumped after a test
         build), while the AUR package follows every release the day it comes out.

@@ -56,9 +56,7 @@ if [[ -n $previous && ${ALLOW_FEWER_PACKAGES:-0} != 1 ]]; then
 	fi
 fi
 
-# Labels bootc reads: the version goes to the config labels and the manifest annotations (before
-# 1.17.3 the composefs backend read only these, bootc-dev/bootc#2227, and a machine stages an
-# update with the bootc it runs).
+# Labels bootc reads (push_image adds the version, which bootc status shows)
 # bootc systems refuse unsigned images (policy.json of the base layer, bootc/layers/base)
 push_image "$IMAGE" "$REPOSITORY" "$TAG" candidate --label ostree.bootable=1 --label containers.bootc=1
 
