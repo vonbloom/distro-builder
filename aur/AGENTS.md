@@ -5,10 +5,13 @@
 - `aur/build` signs after the container exits (packages and `aur.db`), also when it failed.
 - aurutils 23 (commit 2020a2d9) makes `aur build` without `--sign` exit before building when
   `<root>/aur.db.sig` exists ("database signature found, but signing is disabled"; it checks the
-  link, not `aur.db.tar.zst.sig`), so `aur/build` removes the `aur.db.sig` and `aur.files.sig`
-  links before the container and its signing makes them again. The check broke `build-aur` on
-  2026-11-19, when the weekly builder rebuild picked up aurutils 23. A run that dies before the
-  signing (unit stopped) leaves them missing until the next run.
+  link, not `aur.db.tar.zst.sig`), so `aur/build` removes the databases' signatures before the
+  container and its signing makes them again. The check broke `build-aur` on 2026-11-19, when the
+  weekly builder rebuild picked up aurutils 23. Removing only the links was not enough: `repo-add`
+  without `--sign` keeps the old `aur.db.tar.zst.sig` (hard-linked to `.old.sig`) and links
+  `aur.db.sig` to it again, so after `aur sync` added a package the `aur build` of the local
+  packages failed. A run that dies before the signing (unit stopped) leaves the database unsigned
+  until the next run.
 - `build-aur.timer` adds up to 30 min of random delay to its 04:00 UTC and is `Persistent=true`.
   The unit takes `/run/build-image.lock` like the image builds: the bootc builds install bootc
   from `[aur]`, and the 8 GB VM cannot hold chunkah and a Rust compile at once (both started by

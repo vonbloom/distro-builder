@@ -19,9 +19,11 @@ BUILDER_IMAGE=aur-builder
 ensure_builder "$BUILDER_IMAGE" . "$REBUILD"
 
 # aurutils 23 refuses to build unsigned while the database has a signature (aur.db.sig and
-# aur.files.sig, the links made below), and the key never enters the container: the links go for
-# the run and come back when the databases are signed again
-rm -f "$REPO_PATH"/*.db.sig "$REPO_PATH"/*.files.sig
+# aur.files.sig, the links made below), and the key never enters the container: the databases'
+# signatures go for the run and come back when they are signed again. The links alone are not
+# enough: repo-add, unsigned, keeps the old aur.db.tar.zst.sig and links aur.db.sig to it again
+rm -f "$REPO_PATH"/*.db.sig "$REPO_PATH"/*.files.sig "$REPO_PATH"/*.db.tar.zst.sig \
+	"$REPO_PATH"/*.files.tar.zst.sig
 
 # Named after the unit (its log lines carry the name); --replace removes a leftover of a killed run.
 # The script and makepkg.conf are mounted from the checkout, so changes apply on the next run instead
