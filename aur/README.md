@@ -39,3 +39,6 @@ pacman-key --lsign-key CF471E6685974BF43EA113623F9EBD77B1E60E55
 SigLevel = Required
 Server = http://<server>/aur
 ```
+
+While `build-aur` runs, the database has no signature (it is signed when the run ends), so a
+`pacman -Sy` of `[aur]` fails until then.

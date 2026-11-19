@@ -18,20 +18,27 @@ BUILDER_IMAGE=aur-builder
 # Packages are upgraded on every run anyway; the image age only matters for aurutils
 ensure_builder "$BUILDER_IMAGE" . "$REBUILD"
 
+# aurutils 23 refuses to build unsigned while the database has a signature (aur.db.sig and
+# aur.files.sig, the links made below), and the key never enters the container: the links go for
+# the run and come back when the databases are signed again
+rm -f "$REPO_PATH"/*.db.sig "$REPO_PATH"/*.files.sig
+
 # Named after the unit (its log lines carry the name); --replace removes a leftover of a killed run.
 # The script and makepkg.conf are mounted from the checkout, so changes apply on the next run instead
 # of when the builder image is rebuilt (weekly)
+status=0
 podman run --rm --replace --name build-aur \
 	-v "$(pwd)"/aur-build.sh:/usr/bin/aur-build.sh:ro,Z \
 	-v "$(pwd)"/makepkg.conf:/etc/makepkg.conf.d/aur-builder.conf:ro,Z \
 	-v "$(pwd)"/packages.list:/packages.list:ro,Z \
 	-v "$(pwd)"/local:/local:ro,Z \
 	-v "$REPO_PATH":/repo:Z \
-	"$BUILDER_IMAGE"
+	"$BUILDER_IMAGE" || status=$?
 
 # Sign outside the container, which never sees the key: new packages, and the databases, which
 # change on every run (aur.db and aur.files, for pacman -F, are symlinks to the .tar.zst files;
-# pacman fetches aur.db.sig and aur.files.sig)
+# pacman fetches aur.db.sig and aur.files.sig). After a failed run too: the packages built before
+# the failure stay in the database, and the clients refuse a database without its signature
 if can_sign; then
 	(
 		cd "$REPO_PATH"
@@ -48,3 +55,4 @@ if can_sign; then
 else
 	echo "No signing key ($SIGN_GNUPGHOME): packages not signed" >&2
 fi
+exit "$status"

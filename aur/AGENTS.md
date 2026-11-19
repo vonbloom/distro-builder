@@ -2,7 +2,13 @@
 
 @README.md
 
-- `aur/build` signs after the container exits (packages and `aur.db`).
+- `aur/build` signs after the container exits (packages and `aur.db`), also when it failed.
+- aurutils 23 (commit 2020a2d9) makes `aur build` without `--sign` exit before building when
+  `<root>/aur.db.sig` exists ("database signature found, but signing is disabled"; it checks the
+  link, not `aur.db.tar.zst.sig`), so `aur/build` removes the `aur.db.sig` and `aur.files.sig`
+  links before the container and its signing makes them again. The check broke `build-aur` on
+  2026-11-19, when the weekly builder rebuild picked up aurutils 23. A run that dies before the
+  signing (unit stopped) leaves them missing until the next run.
 - `build-aur.timer` adds up to 30 min of random delay to its 04:00 UTC and is `Persistent=true`.
   The unit takes `/run/build-image.lock` like the image builds: the bootc builds install bootc
   from `[aur]`, and the 8 GB VM cannot hold chunkah and a Rust compile at once (both started by
@@ -28,7 +34,8 @@
 - Cleanup: packages neither listed nor needed as AUR dependencies (`aur depends`) are
   `repo-remove`d and their files deleted; `paccache -rk2` keeps the two versions.
 - `makepkg.conf` (`/etc/makepkg.conf.d/`) disables `-debug` packages.
-- A failure in any step stops the run (the unit fails); packages built before it stay published.
+- A failure in any step stops the run (the unit fails); packages built before it stay published,
+  and `aur/build` signs them.
 
 ## Gotchas
 
